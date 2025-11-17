@@ -1,18 +1,94 @@
 # Chapter 5: Multi-Tower Scoring Model for CTR/CVR Prediction
 
-**Building on Chapter 4's retrieval architecture**, this chapter reveals the complete neural model that powers both retrieval and ranking. While Chapter 4 explained how to use embeddings for fast candidate retrieval via ANN search, this chapter details the full picture: **those embeddings come from a sophisticated multi-tower neural network trained to predict CTR and CVR**.
+**Building on Chapter 4's retrieval architecture**, this chapter reveals the complete neural model that powers both retrieval and scoring. While Chapter 4 explained how to use embeddings for fast candidate retrieval via ANN search, this chapter details the full picture: **those embeddings come from a sophisticated multi-tower neural network trained to predict CTR and CVR**.
 
 This unified model serves dual purposes:
-- **For retrieval** (Chapter 4): Tower embeddings enable fast dot-product similarity search → 10M ads narrowed to 500 candidates in <15ms
-- **For ranking** (this chapter): Same embeddings feed into fusion layers for precise pCTR/pCVR prediction → 500 candidates scored in 10-30ms
+- **For retrieval** (Chapter 4): Tower embeddings enable semantic similarity search as part of hybrid retrieval (Boolean-targeting + semantic matching) → 10M ads narrowed to 500-1000 candidates in <15ms
+- **For scoring** (this chapter): Same embeddings feed into fusion layers for precise pCTR/pCVR prediction that are important elements in calculating adjusted eCPM (chapter 3) → 200-500 candidates scored in 10-30ms
 
-We expand the basic two-tower framework into a **multi-tower architecture** that separates static user features from dynamic context, integrates ad creative features, and adds fusion layers with prediction heads for CTR/CVR estimation. This design is optimized for both accuracy (ranking precision) and low-latency serving (retrieval speed).
+We expand the basic two-tower framework into a **multi-tower architecture** that separates static user features from dynamic context, integrates ad creative features, and adds fusion layers with prediction heads for CTR/CVR estimation. This design is optimized for both accuracy (scoring precision) and low-latency serving (retrieval speed).
+
+---
+
+- [Chapter 5: Multi-Tower Scoring Model for CTR/CVR Prediction](#chapter-5-multi-tower-scoring-model-for-ctrcvr-prediction)
+  - [1. Complete Multi-Tower Architecture Overview](#1-complete-multi-tower-architecture-overview)
+    - [1.1 Placement-Specific Models: A Critical Design Requirement](#11-placement-specific-models-a-critical-design-requirement)
+    - [1.2 Dual-Purposes: Retrieval + Scoring](#12-dual-purposes-retrieval--scoring)
+    - [1.3 Training for Both Retrieval and Scoring](#13-training-for-both-retrieval-and-scoring)
+  - [2. Detailed Component Breakdown](#2-detailed-component-breakdown)
+    - [2.1 Static User Tower](#21-static-user-tower)
+    - [2.2 Dynamic Context Tower](#22-dynamic-context-tower)
+    - [2.3 Ad Tower](#23-ad-tower)
+    - [2.4 Fusion \& Prediction Head](#24-fusion--prediction-head)
+      - [Pattern A: Concatenation + MLP (Simple, Fast)](#pattern-a-concatenation--mlp-simple-fast)
+      - [Pattern B: Cross-Feature Interaction + MLP (More Expressive)](#pattern-b-cross-feature-interaction--mlp-more-expressive)
+  - [3. Task-Specific Prediction Heads](#3-task-specific-prediction-heads)
+    - [3.1 Single-Task: CTR Prediction](#31-single-task-ctr-prediction)
+    - [3.2 Multi-Task: CTR + CVR (Shared Backbone, Separate Heads)](#32-multi-task-ctr--cvr-shared-backbone-separate-heads)
+    - [3.3 Advanced: Multi-Task with Auxiliary Losses (ESMM Pattern)](#33-advanced-multi-task-with-auxiliary-losses-esmm-pattern)
+  - [4. Complete Architecture Diagram](#4-complete-architecture-diagram)
+  - [5. Training Details](#5-training-details)
+    - [5.1 Data Pipeline](#51-data-pipeline)
+    - [5.2 Model Training](#52-model-training)
+    - [5.3 Calibration](#53-calibration)
+  - [6. Serving Architecture Integration](#6-serving-architecture-integration)
+    - [6.1 Retrieval Phase (ANN Search)](#61-retrieval-phase-ann-search)
+    - [6.2 Scoring Phase (Full Model Inference)](#62-scoring-phase-full-model-inference)
+  - [7. Why Multi-Tower Design Works](#7-why-multi-tower-design-works)
+  - [Summary and Next Steps](#summary-and-next-steps)
+  - [Technical Appendices](#technical-appendices)
 
 ---
 
 ## 1. Complete Multi-Tower Architecture Overview
 
-**Recall from Chapter 4**: The retrieval system uses tower embeddings ($\vec{E}_{\text{user}}$, $\vec{E}_{\text{context}}$, $\vec{E}_{\text{ad}}$) for fast ANN search. But where do these embeddings come from? This chapter answers that question by detailing the complete neural architecture.
+**The core task**: Given a user viewing a specific page (e.g., searching for "wireless headphones"), predict the probability that they will (1) click on a candidate ad and (2) convert (purchase) if they click. These predictions—**pCTR** (predicted click-through rate) and **pCVR** (predicted conversion rate)—are essential inputs to the auction mechanism (Chapter 3) that determines which ads to show and what advertisers pay.
+
+**Model inputs**:
+- **User features**: Demographics, purchase history, long-term interests (static), plus session behavior (dynamic)
+- **Context features**: Search query text, page type, time of day, device type, current browsing context
+- **Ad features**: Creative content (title, image, description), advertiser metadata, historical performance metrics
+
+**Model outputs**:
+- **pCTR**: $P(\text{click} \mid \text{user, context, ad})$ — probability user clicks the ad (0 to 1)
+- **pCVR**: $P(\text{conversion} \mid \text{user, context, ad, click})$ — probability user converts given they clicked (0 to 1)
+- **Tower embeddings**: Reusable vector representations ($\vec{E}_{\text{user}}$, $\vec{E}_{\text{context}}$, $\vec{E}_{\text{ad}}$) used for both fast retrieval (Chapter 4's ANN search) and precise scoring
+
+This chapter details the neural architecture that produces these predictions while serving dual purposes: enabling fast candidate retrieval via embeddings (Chapter 4) and providing calibrated probability predictions for auction ranking (Chapter 3).
+
+### 1.1 Placement-Specific Models: A Critical Design Requirement
+
+**Before diving into the architecture**, we must address a fundamental reality: **Different ad placement types require different CTR/CVR models**. A retail media network serves ads across multiple placement contexts, each with distinct contextual features:
+
+| Placement Type | Context Features | Example Context |
+|----------------|------------------|-----------------|
+| **Search Results Page** | Query text, search filters, result count | User searches "wireless headphones" |
+| **Product Detail Page** | Viewed product ID, category, price, reviews | User viewing iPhone 15 Pro page |
+| **Category Browse Page** | Category ID, applied filters, sort order | User browsing "Electronics > Audio" |
+| **Homepage** | Time of day, recent browse history, personalization signals | User landing on site homepage |
+| **Cart/Checkout Page** | Cart contents, cart value, checkout stage | User reviewing cart before purchase |
+
+**Why separate models are necessary**:
+
+1. **Different context representations**: Search placements need query embeddings (Transformer encoder for text), while product page placements need product embeddings (item features + metadata). These require fundamentally different encoding architectures.
+
+2. **Different user intent**: CTR/CVR patterns differ dramatically by placement. Users searching "buy now" have high purchase intent, while homepage browsers are exploring. The same ad shown in both contexts has different conversion probabilities.
+
+3. **Feature availability**: Search query text doesn't exist on product pages; viewed product ID doesn't exist on search pages. Each model must be trained on features actually available at serving time.
+
+4. **Training data distribution**: Click/conversion patterns are placement-specific. A search-trained model will perform poorly on product pages due to distribution shift.
+
+**Industry practice**: Major ad platforms (Google Ads, Amazon Ads, Meta) maintain **separate CTR/CVR models per placement type** or **placement families** (e.g., "search-like" placements vs. "browse-like" placements).
+
+**Architectural sharing opportunities**:
+- **Static User Tower**: Can be shared across all placement models (user demographics/history don't change by placement)
+- **Ad Tower**: Can share the base architecture and potentially weights (ad creative features are consistent)
+- **Dynamic Context Tower**: Must be placement-specific (different context features and encoding logic)
+- **Fusion & Prediction Heads**: Often placement-specific (different interaction patterns)
+
+**Scope of this chapter**: To maintain clarity and focus, this chapter details the architecture for a **search placement model** (query-driven context). The architectural patterns—three-tower design, dual-purpose embeddings, fusion patterns, multi-task learning—generalize to all placement types. The key difference lies in the **Dynamic Context Tower implementation**: replace the query Transformer with product embedding lookup, category feature encoding, or homepage personalization features as appropriate for your placement type.
+
+---
 
 The full model consists of **four major components**:
 
@@ -23,42 +99,44 @@ The full model consists of **four major components**:
 
 **Key architectural principle**: The first three towers produce **reusable embeddings** that serve dual purposes:
 
-### Dual-Purpose Embeddings: Retrieval + Ranking
+### 1.2 Dual-Purposes: Retrieval + Scoring
 
-**For Retrieval (Chapter 4)**:
-- Combine user + context tower embeddings into query embedding: $\vec{Q} = \text{Concat}(\vec{E}_{\text{user}}, \vec{E}_{\text{context}})$ or $\vec{Q} = \text{FusionLayer}(\vec{E}_{\text{user}}, \vec{E}_{\text{context}})$
-- Use ANN search to find Top-K ads with highest $\vec{Q} \cdot \vec{E}_{\text{ad}}$ dot product
-- Result: 10M ads → 500-1000 candidates in <15ms
+**Embedding Layers are used For Retrieval (Chapter 4)**:
+- Semantic retrieval: Combine user + context tower embeddings into query embedding $\vec{Q}$, then use ANN search to find Top-K ads with highest $\vec{Q} \cdot \vec{E}_{\text{ad}}$ dot product
+- Lightweight scoring (Chapter 4, Section 3): Combines dot-product similarity with pre-computed features (bid, historical CTR) to narrow candidates
+- Result: 10M ads → 500-1000 candidates (hybrid retrieval) → 200-500 candidates (lightweight scoring) in <15ms total
 
-**For Ranking (This Chapter)**:
-- The **same embeddings** from all three towers feed into Fusion & Prediction Head
+**For Scoring (This Chapter)**:
+- The **same embeddings** from all three towers (pre-computed and cached) feed into Fusion & Prediction Head
 - Fusion head computes cross-feature interactions: user·ad, context·ad dot products
 - Prediction heads output calibrated pCTR and pCVR probabilities
-- Result: 500 candidates → precise scores in 10-30ms
+- These scores feed into the auction mechanism (Chapter 3) which computes eCPM = pCTR × bid × quality_score
+- Result: 200-500 candidates → precise scores in 10-30ms; auction ranks ads by eCPM
 
 **Why this unified design works**:
-- **Training consistency**: Model optimized for BOTH retrieval recall (via dot-product similarity) AND ranking accuracy (via CTR/CVR prediction)
-- **Shared embedding space**: Candidates retrieved by similarity are naturally relevant to ranking predictions
-- **Efficient serving**: Pre-compute static components (user, ad offline), compute dynamic (context online)
-- **Single model to maintain**: No drift between retrieval and ranking models
+- **Training consistency**: Model optimized for BOTH semantic retrieval recall (via dot-product similarity) AND scoring accuracy (via CTR/CVR prediction)
+- **Shared embedding space**: Candidates retrieved by semantic similarity are naturally relevant to scoring predictions
+- **Efficient serving**: Pre-compute static components (user, ad offline), compute dynamic (context online), reuse embeddings across retrieval and scoring
+- **Single model to maintain**: No drift between semantic retrieval and scoring models (Boolean-targeting uses separate inverted indices)
 
-### Training for Both Retrieval and Ranking
+### 1.3 Training for Both Retrieval and Scoring
 
 The model is trained with a **unified loss** that optimizes tower embeddings for BOTH objectives:
 
-$$\mathcal{L}_{\text{total}} = \alpha \cdot \mathcal{L}_{\text{ranking}} + \beta \cdot \mathcal{L}_{\text{retrieval}}$$
+$$\mathcal{L}_{\text{total}} = \alpha \cdot \mathcal{L}_{\text{scoring}} + \beta \cdot \mathcal{L}_{\text{retrieval}} \tag{5.1}$$
 
 Where:
-- $\mathcal{L}_{\text{ranking}}$: BCE loss on CTR/CVR predictions using full model (towers + fusion + heads)
-- $\mathcal{L}_{\text{retrieval}}$: Contrastive loss on dot-product similarity (ensures towers learn embedding alignment)
+- $\mathcal{L}_{\text{scoring}}$: BCE loss on CTR/CVR predictions using full model (towers + fusion + heads)
+- $\mathcal{L}_{\text{retrieval}}$: Contrastive loss on dot-product similarity (ensures towers learn embedding alignment for semantic retrieval; note: Boolean-targeting criteria are not learned but specified by advertisers)
 
 **Retrieval loss** (optional but recommended):
-$$\mathcal{L}_{\text{retrieval}} = -\log \frac{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}})}{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}}) + \sum_{j} \exp(\vec{Q} \cdot \vec{E}_{\text{ad}_j}^{\text{negative}})}$$
+$$\mathcal{L}_{\text{retrieval}} = -\log \frac{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}})}{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}}) + \sum_{j} \exp(\vec{Q} \cdot \vec{E}_{\text{ad}_j}^{\text{negative}})} \tag{5.2}$$
 
 This sampled softmax loss ensures that:
 - Query embedding $\vec{Q}$ (combining user + context) is close to clicked ad embeddings
 - Query embedding is far from non-clicked (negative) ad embeddings
-- Towers explicitly optimize for retrieval recall, not just ranking accuracy
+- Towers explicitly optimize for semantic retrieval recall (the embedding-based component), not just scoring accuracy
+- Note: This loss does not optimize Boolean-targeting, which uses advertiser-specified rules indexed separately
 
 **Training details** covered in Section 5: Loss formulations, negative sampling strategies, multi-task learning patterns.
 
@@ -106,7 +184,7 @@ Output: E_user_static [dim=128]
 
 **Note**: The exact concatenated dimension (400-d in this example) depends on embedding sizes chosen for each categorical feature and the dimensionality of pre-trained interest vectors. Common practice is to use embedding dimensions proportional to $\min(50, \lceil \text{cardinality}/2 \rceil)$ for categorical features, though you may use powers of 2 (4, 8, 16, 32, 64) for hardware efficiency.
 
-**Implementation Example (PyTorch)**:
+**Code Listing 5.1: Static User Tower Implementation in PyTorch**
 
 ```python
 import torch
@@ -354,6 +432,8 @@ if __name__ == "__main__":
 
 ### 2.2 Dynamic Context Tower
 
+**Note**: This section describes the **search placement** implementation of the Dynamic Context Tower. For other placement types (product pages, category browse, homepage), the context tower architecture differs—e.g., replacing the query Transformer with product embedding lookup or category feature encoding—while the overall three-tower pattern remains consistent.
+
 **Input features** (computed online per request):
 - Search query: Text string (tokenized → Transformer encoder with positional embeddings, as detailed earlier)
 - Session context: `num_queries_in_session`, `time_since_session_start`, `pages_viewed`
@@ -417,6 +497,8 @@ Output: E_ad [dim=128]
 - Compute for all eligible ads (10M-100M) in daily batch → store in ad index (FAISS/ScaNN)
 - Incremental updates: New ads or creative changes trigger re-encoding within 5-15 minutes
 
+> **Code Listings 5.2-5.5**: Due to their length (~100-120 lines each), complete implementations for the Ad Tower (5.2), Dynamic Context Tower (5.3), Fusion Layers (5.4), and ESMM Model (5.5) are available in the accompanying Jupyter notebook: `code/ch5_multi_tower_scoring_model.ipynb`. These implementations include full error handling, comprehensive tests, and production-ready features.
+
 ---
 
 ### 2.4 Fusion & Prediction Head
@@ -439,11 +521,11 @@ Dense(64, ReLU)
 Output logits (for CTR/CVR prediction)
 ```
 
-**Limitation**: This pattern **does NOT explicitly reflect the retrieval objective**. The MLP must implicitly learn the dot product interactions during training. While this can work (the MLP has sufficient capacity to approximate dot products), it's less efficient and provides weaker alignment between retrieval and ranking stages.
+**Limitation**: This pattern **does NOT explicitly reflect the retrieval objective**. The MLP must implicitly learn the dot product interactions during training. While this can work (the MLP has sufficient capacity to approximate dot products), it's less efficient and provides weaker alignment between retrieval and scoring stages.
 
 #### Pattern B: Cross-Feature Interaction + MLP (More Expressive)
 
-Modern ranking models add explicit **cross-tower interactions** before the MLP to capture feature combinations. **This pattern explicitly reflects the retrieval objective** (see explanation below).
+Modern scoring models add explicit **cross-tower interactions** before the MLP to capture feature combinations. **This pattern explicitly reflects the retrieval objective** (see explanation below).
 
 ```
 Tower outputs: E_user, E_context, E_ad [each 128-d]
@@ -466,11 +548,11 @@ Task-specific heads (see below)
 
 **How this connects to retrieval**:
 - **During retrieval**: Compute query embedding $\vec{Q}$ by combining user + context (e.g., $\vec{Q} = \vec{E}_{\text{user}} + \vec{E}_{\text{context}}$ or concatenation), then use $\vec{Q} \cdot \vec{E}_{\text{ad}}$ for ANN search
-- **During ranking**: The fusion layer computes individual dot products (user·ad, context·ad) which are components of the full query·ad similarity
+- **During scoring**: The fusion layer computes individual dot products (user·ad, context·ad) which are components of the full query·ad similarity
 - **Training insight**: Since $\vec{Q} \cdot \vec{E}_{\text{ad}} = (\vec{E}_{\text{user}} + \vec{E}_{\text{context}}) \cdot \vec{E}_{\text{ad}} = \vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}} + \vec{E}_{\text{context}} \cdot \vec{E}_{\text{ad}}$, the model learns both components
 - **Result**: By including user·ad and context·ad dot products as explicit features in the fusion layer, the model learns to make these dot products predictive of clicks. This naturally optimizes the towers for retrieval (where we use the sum/combination of these dot products).
 
-**Why cross-interactions matter**: The dot products $\vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}}$ and $\vec{E}_{\text{context}} \cdot \vec{E}_{\text{ad}}$ explicitly measure alignment in the shared embedding space. This is the same similarity score used during ANN retrieval, so feeding it to the ranking head creates a **unified retrieval-ranking framework** where the MLP learns to refine the raw similarity scores with additional context.
+**Why cross-interactions matter**: The dot products $\vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}}$ and $\vec{E}_{\text{context}} \cdot \vec{E}_{\text{ad}}$ explicitly measure alignment in the shared embedding space. This is the same similarity score used during ANN retrieval, so feeding it to the scoring head creates a **unified retrieval-scoring framework** where the MLP learns to refine the raw similarity scores with additional context.
 
 ---
 
@@ -489,11 +571,11 @@ Sigmoid → pCTR ∈ [0, 1]
 ```
 
 **Loss function**: Binary Cross-Entropy (BCE) with optional calibration:
-$$\mathcal{L}_{\text{CTR}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\hat{p}_i) + (1 - y_i) \log(1 - \hat{p}_i) \right]$$
+$$\mathcal{L}_{\text{CTR}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\hat{p}_i) + (1 - y_i) \log(1 - \hat{p}_i) \right] \tag{5.3}$$
 
 where $y_i \in \{0, 1\}$ is the click label and $\hat{p}_i$ is the predicted CTR.
 
-**Calibration**: Post-training, apply isotonic regression or Platt scaling to map raw model outputs to calibrated probabilities that match observed click rates.
+**Calibration**: Post-training, apply isotonic regression or Platt scaling to map raw model outputs to calibrated probabilities that match observed click rates. This ensures pCTR predictions are accurate for auction eCPM calculations.
 
 ---
 
@@ -512,7 +594,7 @@ pCTR        pCVR
 ```
 
 **Loss function**: Weighted multi-task loss:
-$$\mathcal{L}_{\text{total}} = \alpha \cdot \mathcal{L}_{\text{CTR}} + \beta \cdot \mathcal{L}_{\text{CVR}}$$
+$$\mathcal{L}_{\text{total}} = \alpha \cdot \mathcal{L}_{\text{CTR}} + \beta \cdot \mathcal{L}_{\text{CVR}} \tag{5.4}$$
 
 Typical weights: $\alpha=0.7$, $\beta=0.3$ (CTR has more training samples than CVR due to conversion sparsity).
 
@@ -530,26 +612,53 @@ For sparse conversion events, use the **Entire Space Multi-Task Model (ESMM)** p
 
 ```
 Fusion output [64-d]
-  ↓           ↓           ↓
-CTR Head    CVR Head    CTCVR Head
-  ↓           ↓           ↓
-pCTR        pCVR        pCTCVR = pCTR × pCVR (constrained)
+  ↓           ↓
+CTR Head    CVR Head
+  ↓           ↓
+pCTR        pCVR
+  ↓           ↓
+   \         /
+    \       /
+     \     /
+      \   /
+       \ /
+    pCTCVR = pCTR × pCVR (multiplication, not a separate head)
 ```
 
-**Key insight**: Model $p(\text{click})$ and $p(\text{conversion} | \text{click})$ separately, then multiply to get $p(\text{click and conversion})$. This eliminates **sample selection bias** in CVR modeling (traditionally trained only on clicked samples).
+**Key insight**: Model $p(\text{click})$ and $p(\text{conversion} | \text{click})$ separately using two neural network heads, then **multiply their outputs** to get $p(\text{click and conversion})$. This eliminates **sample selection bias** in CVR modeling (traditionally trained only on clicked samples).
+
+**Why pCTCVR is needed - The Sample Selection Bias Problem:**
+
+Traditional CVR modeling trains only on **clicked samples** to predict $p(\text{conversion} | \text{click})$. This creates bias because:
+- Non-clickers are excluded from training (you don't observe whether they would have converted)
+- The model only learns from users who clicked, which is a biased subset
+
+ESMM solves this by introducing **pCTCVR** = $p(\text{click AND conversion})$ as a supervisory signal:
+- pCTCVR can be trained on **all impressions** (conversion=1 if user converted, 0 otherwise)
+- By enforcing the constraint **pCTCVR = pCTR × pCVR**, the CVR head learns indirectly
+- The CVR head must output values such that when multiplied by pCTR, the product matches observed conversion rates across **the entire population**, not just clickers
 
 **Loss function**:
-$$\mathcal{L}_{\text{ESMM}} = \mathcal{L}_{\text{CTR}} + \mathcal{L}_{\text{CTCVR}}$$
+$$\mathcal{L}_{\text{ESMM}} = \mathcal{L}_{\text{CTR}} + \mathcal{L}_{\text{CTCVR}} \tag{5.5}$$
 
 where:
-- $\mathcal{L}_{\text{CTR}}$: BCE on all impressions (clicked=1, not clicked=0)
-- $\mathcal{L}_{\text{CTCVR}}$: BCE on all impressions (converted=1, otherwise=0)
+- $\mathcal{L}_{\text{CTR}}$: BCE (Binary Cross-Entropy) loss on all impressions (clicked=1, not clicked=0)
+- $\mathcal{L}_{\text{CTCVR}}$: BCE loss on all impressions (converted=1, otherwise=0)
+  - Note: pCTCVR is computed as pCTR × pCVR, then BCE loss is applied to this product
 
-The CVR head learns implicitly through the constraint $\text{pCTCVR} = \text{pCTR} \times \text{pCVR}$.
+**How the constraint works:**
+- The CVR head has **no direct supervision** - there's no standalone CVR loss
+- Instead, it learns through backpropagation from $\mathcal{L}_{\text{CTCVR}}$ via the multiplication operation
+- Gradients flow: $\mathcal{L}_{\text{CTCVR}} \rightarrow \text{pCTCVR} \rightarrow \text{pCVR}$ (CVR head)
+- This forces pCVR to learn $p(\text{conversion} | \text{click})$ correctly across the **entire impression space**, eliminating sample selection bias
+
+**Practical benefit**: CVR predictions are more accurate and generalize better than traditional CVR models trained only on clicked samples.
 
 ---
 
 ## 4. Complete Architecture Diagram
+
+**Figure 5.1: Complete Multi-Tower Architecture for CTR/CVR Prediction with Dual-Purpose Embeddings**
 
 ```mermaid
 graph TB
@@ -643,11 +752,11 @@ graph TB
     style PCTCVR fill:#ffe1e1,stroke:#333,stroke-width:2px
 ```
 
-**Figure: End-to-End Multi-Tower Architecture for CTR/CVR Prediction**
-
 ---
 
 ## 5. Training Details
+
+> **Note on Code Listings**: Sections 5.1-5.3 present abbreviated code listings focused on core concepts. Complete, production-ready implementations with comprehensive error handling, testing, and documentation are available in the accompanying Jupyter notebook: `code/ch5_multi_tower_scoring_model.ipynb`
 
 ### 5.1 Data Pipeline
 
@@ -665,6 +774,61 @@ graph TB
 - Static user features: Updated daily (batch ETL)
 - Ad features: Updated every 1-4 hours (incremental pipeline)
 - Dynamic context: Computed online (no pre-computation)
+
+**Code Listing 5.6: Data Pipeline Skeleton**
+
+The following shows the core structure of the impression dataset class. In production, this would load from data warehouses (Hive/BigQuery), streaming systems (Kafka), or feature stores (Feast/Tecton).
+
+```python
+from torch.utils.data import Dataset, DataLoader
+
+class ImpressionDataset(Dataset):
+    """Dataset for ad impression logs."""
+    def __init__(self, data_path: str = None, mode: str = 'synthetic'):
+        if mode == 'synthetic':
+            self.impressions = self._generate_synthetic_data(n_samples=5000)
+        else:
+            self.impressions = self._load_from_file(data_path)
+        
+        # Compute normalization statistics from training data (log-space)
+        self._compute_normalization_stats()
+    
+    def __getitem__(self, idx: int) -> Dict[str, torch.Tensor]:
+        """Return a single impression as tensors ready for model input."""
+        imp = self.impressions[idx]
+        
+        return {
+            # User tower inputs
+            'user_categorical': self._encode_user_categorical(imp['user']),
+            'user_numerical': self._encode_user_numerical(imp['user']),
+            'user_interest': torch.randn(256),  # From user behavior model
+            
+            # Context tower inputs
+            'query_tokens': self._tokenize_query(imp['context']['query_text']),
+            'query_mask': self._create_attention_mask(),
+            'context_categorical': self._encode_context_categorical(imp['context']),
+            'context_numerical': self._encode_context_numerical(imp['context']),
+            
+            # Ad tower inputs
+            'ad_categorical': self._encode_ad_categorical(imp['ad']),
+            'ad_numerical': self._encode_ad_numerical(imp['ad']),
+            'ad_text_emb': torch.randn(128),    # From text encoder
+            'ad_image_emb': torch.randn(128),   # From image encoder
+            
+            # Labels
+            'labels': torch.tensor([imp['clicked'], imp['converted']]),
+        }
+
+# Create dataloader with batching
+dataloader = DataLoader(
+    ImpressionDataset(mode='synthetic'),
+    batch_size=128,
+    shuffle=True,
+    collate_fn=collate_fn  # Custom function to batch variable-length sequences
+)
+```
+
+> **Note**: Complete implementation with synthetic data generation, file I/O, comprehensive feature engineering, and normalization statistics is available in the accompanying notebook: `code/ch5_multi_tower_scoring_model.ipynb`
 
 ---
 
@@ -688,11 +852,64 @@ graph TB
 
 **Training time**: 2-5 days for 100M-1B training samples (depending on model size and infrastructure)
 
+**Code Listing 5.8: End-to-End Training with Dual Loss**
+
+The complete training pipeline trains all components (user tower, context tower, ad tower, fusion layer, ESMM heads) end-to-end. The dual loss combines ranking objectives (CTR/CVR prediction) with retrieval objectives (embedding similarity).
+
+```python
+def train_end_to_end(user_tower, context_tower, ad_tower, esmm_model, 
+                     dataloader, optimizer, alpha=1.0, beta=0.5):
+    """
+    End-to-end training with dual loss: L_total = α·L_ranking + β·L_retrieval
+    
+    Key: Trains ALL 7.5M parameters (not just fusion + heads).
+    """
+    for batch in dataloader:
+        optimizer.zero_grad()
+        
+        # Forward pass through all towers
+        user_emb = user_tower(batch['user_features'])
+        context_emb = context_tower(batch['context_features'])
+        ad_emb = ad_tower(batch['ad_features'])
+        
+        # ESMM predictions
+        pCTR, pCVR, pCTCVR = esmm_model(user_emb, context_emb, ad_emb)
+        
+        # Ranking loss (ESMM): Fine-grained CTR/CVR supervision
+        loss_ctr = binary_cross_entropy(pCTR, batch['clicked'])
+        loss_ctcvr = binary_cross_entropy(pCTCVR, batch['converted'])
+        loss_ranking = loss_ctr + loss_ctcvr
+        
+        # Retrieval loss (Contrastive): Align embeddings for ANN search
+        query_emb = user_emb + context_emb  # Combined query representation
+        similarity_matrix = query_emb @ ad_emb.T  # [batch, batch]
+        targets = torch.arange(len(batch))  # Diagonal = positive pairs
+        loss_retrieval = cross_entropy(similarity_matrix, targets)
+        
+        # Combined loss
+        total_loss = alpha * loss_ranking + beta * loss_retrieval
+        
+        # Backprop through entire architecture
+        total_loss.backward()  # Updates all 7.5M parameters
+        torch.nn.utils.clip_grad_norm_(all_parameters, max_norm=1.0)
+        optimizer.step()
+    
+    return metrics
+```
+
+**Key insights**:
+- **Ranking loss** provides fine-grained CTR/CVR supervision for scoring accuracy
+- **Retrieval loss** aligns tower embeddings for semantic similarity (enables ANN retrieval)
+- **Joint training** ensures consistency between retrieval and scoring stages
+- **Contrastive learning** uses in-batch negatives: for each query, positive ad = shown ad, negatives = all other ads in batch
+
+> **Note**: Complete DualLossTrainer class with metrics tracking, learning rate scheduling, checkpointing, and production features is available in the notebook.
+
 ---
 
 ### 5.3 Calibration
 
-Raw model outputs often have **calibration drift**: predicted pCTR=0.05 may correspond to observed CTR=0.03. This breaks auction dynamics and budget pacing.
+Raw model outputs often have **calibration drift**: predicted pCTR=0.05 may correspond to observed CTR=0.03. This breaks auction dynamics and budget pacing because the eCPM formula (pCTR × bid × quality_score) relies on accurate probability estimates.
 
 **Post-training calibration methods**:
 
@@ -714,6 +931,61 @@ Raw model outputs often have **calibration drift**: predicted pCTR=0.05 may corr
 
 **Best practice**: Use isotonic regression for CTR (high sample volume), temperature scaling for CVR (sparser data).
 
+**Code Listing 5.7: Isotonic Regression Calibration**
+
+The following implementation shows how to calibrate model predictions using isotonic regression to ensure predicted probabilities match observed frequencies.
+
+```python
+from sklearn.isotonic import IsotonicRegression
+
+class ModelCalibrator:
+    """
+    Calibrates predicted probabilities using isotonic regression.
+    
+    Problem: Neural networks often produce overconfident predictions.
+    Solution: Post-process to match observed frequencies.
+    """
+    def __init__(self):
+        self.ctr_calibrator = IsotonicRegression(out_of_bounds='clip')
+        self.cvr_calibrator = IsotonicRegression(out_of_bounds='clip')
+        self.ctcvr_calibrator = IsotonicRegression(out_of_bounds='clip')
+        
+    def fit(self, predictions: Dict[str, np.ndarray], labels: Dict[str, np.ndarray]):
+        """Fit isotonic regression on validation set."""
+        # CTR: Train on all impressions
+        self.ctr_calibrator.fit(predictions['ctr'], labels['clicked'])
+        
+        # CTCVR: Train on all impressions
+        self.ctcvr_calibrator.fit(predictions['ctcvr'], labels['converted'])
+        
+        # CVR: Train only on clicked impressions
+        clicked_mask = labels['clicked'] == 1
+        if clicked_mask.sum() > 0:
+            self.cvr_calibrator.fit(
+                predictions['cvr'][clicked_mask],
+                labels['converted'][clicked_mask]
+            )
+    
+    def transform(self, predictions: Dict[str, np.ndarray]) -> Dict[str, np.ndarray]:
+        """Apply calibration to new predictions."""
+        return {
+            'ctr': self.ctr_calibrator.predict(predictions['ctr']),
+            'cvr': self.cvr_calibrator.predict(predictions['cvr']),
+            'ctcvr': self.ctcvr_calibrator.predict(predictions['ctcvr']),
+        }
+
+# Usage:
+# calibrator = ModelCalibrator()
+# calibrator.fit(val_predictions, val_labels)
+# calibrated_preds = calibrator.transform(test_predictions)
+```
+
+**Calibration metrics**:
+- **Expected Calibration Error (ECE)**: Measures average difference between predicted probabilities and observed frequencies across probability bins
+- **Reliability diagram**: Scatter plot of predicted vs. observed probabilities (perfect calibration = diagonal line)
+
+> **Note**: Complete implementation with ECE computation, reliability diagram visualization, and before/after comparison is available in the notebook.
+
 ---
 
 ## 6. Serving Architecture Integration
@@ -733,16 +1005,16 @@ The multi-tower model serves two roles in production:
 
 ---
 
-### 6.2 Ranking Phase (Full Model Inference)
+### 6.2 Scoring Phase (Full Model Inference)
 
 - **Input**: 500-1000 candidates from retrieval + all three tower embeddings
 - **At request time**:
   1. Fetch pre-computed $\vec{E}_{\text{ad}}$ for each candidate (from ad index metadata or separate cache)
   2. Run fusion head + prediction heads: $(E_{\text{user}}, E_{\text{context}}, E_{\text{ad}}) \rightarrow (\text{pCTR}, \text{pCVR})$
-  3. Compute auction score: $\text{eCPM} = \text{bid} \times \text{pCTR} \times 1000$ (or multi-objective: $\text{bid} \times (\alpha \cdot \text{pCTR} + \beta \cdot \text{pCVR})$)
-  4. Re-rank candidates by eCPM → select Top-10-20 for final auction and rendering
+  3. Auction mechanism (Chapter 3) computes eCPM: $\text{eCPM} = \text{bid} \times \text{pCTR} \times \text{quality\_score}$ (or multi-objective: $\text{bid} \times (\alpha \cdot \text{pCTR} + \beta \cdot \text{pCVR})$)
+  4. Auction ranks candidates by eCPM → selects Top-10-20 for final display
 
-**Latency budget**: 10-30ms for ranking 500-1000 candidates (batched inference on GPU/TPU)
+**Latency budget**: 10-30ms for scoring 200-500 candidates (batched inference on GPU/TPU)
 
 **Batching optimization**: Accumulate 5-10 concurrent requests → batch all candidates → run single forward pass → split results. Increases throughput 5-10×.
 
@@ -777,178 +1049,30 @@ This architecture is the **backbone of modern recommendation and ad systems** at
 
 ---
 
-## Summary
+## Summary and Next Steps
 
 This chapter presented the complete multi-tower ranking model for production ad systems:
 
-1. **Three-Tower Architecture**: Static User Tower, Dynamic Context Tower, and Ad Tower that produce reusable embeddings for both retrieval (Chapter 4) and ranking (this chapter)
-2. **Dual-Purpose Embeddings**: Same tower outputs serve ANN-based retrieval (fast candidate finding) and CTR/CVR prediction (precise scoring)
-3. **Fusion & Prediction Heads**: Cross-feature interactions (user·ad, context·ad dot products) combined with task-specific heads for CTR, CVR, and ESMM
-4. **Unified Training**: Combined loss function optimizes for both retrieval recall and ranking accuracy simultaneously
-5. **Multi-Task Learning**: Shared backbone with separate prediction heads, addressing sample selection bias via ESMM pattern
-6. **Production Serving**: Caching strategies (static user embeddings in Redis), batching (5-10 concurrent requests), calibration (isotonic regression, Platt scaling)
-7. **System Integration**: Pre-computed ad embeddings stored in ANN index (Chapter 4), cached user embeddings, online context encoding for <50ms end-to-end latency
+1. **Placement-Specific Models**: Different ad placement types (search, product pages, category browse) require separate CTR/CVR models with placement-specific Dynamic Context Towers, while sharing User and Ad tower architectures
+2. **Three-Tower Architecture**: Static User Tower, Dynamic Context Tower (search placement example), and Ad Tower that produce reusable embeddings for both retrieval (Chapter 4) and scoring (this chapter)
+3. **Dual-Purpose Embeddings**: Same tower outputs serve ANN-based retrieval (fast candidate finding) and CTR/CVR prediction (precise scoring)
+4. **Fusion & Prediction Heads**: Cross-feature interactions (user·ad, context·ad dot products) combined with task-specific heads for CTR, CVR, and ESMM
+5. **Unified Training**: Combined loss function optimizes for both retrieval recall and ranking accuracy simultaneously
+6. **Multi-Task Learning**: Shared backbone with separate prediction heads, addressing sample selection bias via ESMM pattern
+7. **Production Serving**: Caching strategies (static user embeddings in Redis), batching (5-10 concurrent requests), calibration (isotonic regression, Platt scaling)
+8. **System Integration**: Pre-computed ad embeddings stored in ANN index (Chapter 4), cached user embeddings, online context encoding for <50ms end-to-end latency
 
 **Connection to Chapter 4**: The retrieval system (Chapter 4) uses the tower embeddings from this model for ANN search. This chapter explained how those embeddings are created, trained, and refined into calibrated probability predictions for auction ranking.
 
 **Next steps**: With candidates retrieved (Chapter 4) and scored with pCTR/pCVR (this chapter), Chapter 3 showed how these predictions feed into the auction mechanism (adjusted eCPM, quality scores, GSP pricing) to determine which ads win and what advertisers pay.
 
-The appendices that follow provide deep dives into the **Sequential Encoder** (Transformer-based query encoding) and **Positional Embedding** mechanisms that power the Dynamic Context Tower's text processing capabilities.
-
----
 ---
 
-# Appendix A: Sequential Encoder for Contextual Search Queries
+## Technical Appendices
 
-The **Sequential Encoder** is a vital component within the **Dynamic Context Tower**. Its primary function is to transform a raw, variable-length text input—like a traveler's search query (e.g., "all-inclusive resorts in cancun for honeymoon")—into a single, fixed-size, dense **Query Vector** that accurately captures the search's meaning and intent.
+For detailed technical explanations of advanced concepts used in this chapter, including:
+- **Appendix A:** Sequential Encoder for Contextual Search Queries (Transformer-based query encoding)
+- **Appendix B:** Positional Embedding in Transformers (why and how positional information is injected)
 
-This is a critical step because the downstream systems (the final concatenation and the dot product comparison) require a consistent, numerical input vector, not a string of text.
+Please refer to the separate document: **`app5_model_tech.md`**
 
----
-
-## A.1 Why Sequential Encoding is Necessary
-
-Textual queries are inherently sequential and semantic, meaning the order of words and their relationship matters significantly:
-
-* **Order Matters:** The query "Paris to London" is fundamentally different from "London to Paris." Simple bag-of-words models fail to capture this directional relationship.
-* **Semantic Meaning:** The word "resort" implies a different intent than the word "hostel." The encoder must learn the semantic context of each word.
-* **Variable Length:** Queries can be short ("NYC hotels") or long ("best pet-friendly, luxury, beachfront hotels in Miami for Christmas"). The encoder must output a fixed-size vector regardless of input length.
-
----
-
-## A.2 The Three Stages of Encoding
-
-The process of generating the final query embedding involves three distinct, cascaded stages:
-
-### Stage 1: Tokenization and Input Embeddings
-
-1.  **Tokenization:** The raw string is broken down into a sequence of tokens (words, sub-words, or characters).
-    * *Example:* `"best family hotel in Orlando"` becomes `[best, family, hotel, in, Orlando]`.
-2.  **Token-to-Vector Mapping:** Each token is mapped to an initial, dense **Token Embedding** vector using a pre-trained **Embedding Table**. This table serves as a lexicon, giving the model a starting point for the semantic value of each word.
-3.  **Positional Encoding (for Transformers):** Since the subsequent model (the Transformer) does not inherently know the order of words, a **Positional Embedding** vector is added to the Token Embedding. This vector explicitly injects information about where the word appears in the sequence (e.g., "best" is position 1, "Orlando" is position 5).
-
-### Stage 2: The Sequential Encoder (Transformer Block)
-
-The sequence of embedded tokens is fed into the encoder. While older systems used **Recurrent Neural Networks (RNNs)** or **Long Short-Term Memory (LSTMs)**, modern, high-performance systems favor the **Transformer Architecture**.
-
-* **Self-Attention:** This is the core mechanism. The model calculates an **Attention Score** between every word and every other word in the query. For example, when processing the word "hotel," the self-attention mechanism learns to highly weight (or "attend to") the words "family," "best," and "Orlando," allowing the model to create a more contextually rich representation for "hotel."
-* **Contextualization:** By passing through multiple layers of self-attention, the model effectively fuses the entire context of the query into a new, single vector for *each word*. These new vectors are **contextualized**—they now represent the word *in the context of the whole search phrase*.
-
-### Stage 3: Output Condensation
-
-The Sequential Encoder outputs a sequence of $N$ contextualized vectors, where $N$ is the number of tokens. The goal is to collapse this sequence into a single, fixed-size vector ($\vec{E}_{\text{query}}$). Two primary methods are used:
-
-1.  **Pooling (Averaging/Max):** The most common technique is **Average Pooling**, where the model simply takes the average of all the contextualized token vectors. This is fast and robust.
-2.  **Special Token (e.g., `[CLS]`):** A designated classification token (like the `[CLS]` token in BERT) is prepended to the input. The output vector corresponding to *only* this token is taken as the representation of the entire sequence. This forces the model to learn to summarize the entire query's meaning into that single position.
-
-The resulting vector, **$\vec{E}_{\text{query}}$**, is the final, dense, fixed-size output of the sequential encoder. This vector then proceeds to the concatenation and fusion steps within the Dynamic Context Tower to be combined with the other features (like device type and numerical filters).
-
----
----
-
-# Appendix B: Positional Embedding in Transformers
-
-The need for a **positional embedding** exists because the **Self-Attention** mechanism, the heart of the Transformer, fundamentally processes all tokens **in parallel**, which eliminates the concept of order.
-
-Here is the explanation of why the initial token-to-vector mapping is not enough, and why positional encoding is necessary.
-
----
-
-## B.1 The Token Embedding: Semantic Meaning, No Order
-
-The first layer of the model, the **Token Embedding**, is essentially a sophisticated **lookup table** (or a simple linear mapping).
-
-* **What it provides:** It takes a token (e.g., "hotel") and maps it to a dense vector that captures its **semantic meaning**. This vector tells the model that "hotel" is related to "resort" and "motel," but not to "airplane."
-* **What it *does not* provide:** It is calculated independently for every token. Whether the token "hotel" is the first, third, or last word in the search query, the raw output vector for "hotel" is **identical**.
-
-Consider these two queries:
-1.  `[**New York**] to [**Seattle**]`
-2.  `[**Seattle**] to [**New York**]`
-
-The set of token vectors for both queries is the exact same. The model has no inherent way to know which token came first.
-
----
-
-## B.2 The Self-Attention Problem: Loss of Sequence
-
-The issue arises when these token vectors are processed by the **Self-Attention** layer in the Transformer block:
-
-* **Parallel Processing:** Unlike an RNN, which processes tokens one by one (left-to-right), the Transformer processes all tokens in the sequence **simultaneously**.
-* **The Attention Function:** The attention mechanism calculates the relationship between every token pair ($T_i$ and $T_j$) using matrix multiplication. The calculation is **invariant to the order** of the input vectors. If you swap the vectors for "New York" and "Seattle," the resulting attention scores for those two tokens, relative to all other tokens, will be the same—they will simply be transposed in the output matrix.
-* **No Implicit Order:** If you remove the positional embeddings, the Self-Attention mechanism would produce an identical final query vector ($\vec{Q}$) for both "New York to Seattle" and "Seattle to New York," making the model useless for sequential tasks.
-
-**The Transformer gains incredible speed and computational efficiency by giving up the implicit sequential processing of RNNs, but it must explicitly re-introduce that lost order information.**
-
----
-
-## B.3 The Solution: Positional Embedding
-
-**Positional Embeddings** are small, dense vectors that are **added** to the Token Embeddings at the input layer.
-
-$$\text{Input Vector} = \text{Token Embedding} + \text{Positional Embedding}$$
-
-This fusion injects the sequence information:
-
-* **Unique Position Signal:** For every position in the sequence (1st, 2nd, 3rd, etc.), a unique position vector is generated.
-* **Distinguishing the Same Token:** By adding the positional vector, the model now has a unique input for the same token, based on its location:
-    * `Token("Seattle")` + `Position(1)` $\rightarrow$ **First Word**
-    * `Token("Seattle")` + `Position(4)` $\rightarrow$ **Fourth Word**
-
-When the Self-Attention mechanism runs on these modified vectors, it not only sees the semantic meaning of the word but also its specific location in the query. This allows the model to learn that the **first** location in a search query often represents the **origin** and the **last** location often represents the **destination**.
-
-### How Positional Embeddings are Created:
-
-They are typically generated using one of two methods:
-1.  **Sinusoidal (Fixed) Encoding:** Uses fixed sine and cosine functions to generate predictable, non-learnable patterns. This is the original method used in the foundational "Attention Is All You Need" paper.
-2.  **Learned Encoding:** The positional vectors are treated as parameters that are updated and optimized during training, allowing the model to determine the most effective way to represent position. This is the common practice in models like BERT.
-
----
-
-## B.4 Example: Sinusoidal Positional Encoding
-
-The core idea of **Sinusoidal Encoding** is to use sine and cosine functions of different frequencies to create a unique, deterministic vector for every position in the sequence.
-
-### The Mathematical Formula
-
-For an embedding of dimension $d_{\text{model}}$ (e.g., 512) and a position $pos$ (e.g., 1, 2, 3...), the value for each dimension $i$ is calculated as:
-
-$$\begin{aligned}
-\text{PE}_{(\text{pos}, 2i)} &= \sin\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right) \\
-\text{PE}_{(\text{pos}, 2i+1)} &= \cos\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right)\end{aligned}$$
-
-* **Sine/Cosine Pair:** Every odd dimension uses $\sin$ and every even dimension uses $\cos$. This allows the model to easily learn relative positions.
-* **Variable Frequency:** The $10000^{2i/d_{\text{model}}}$ term ensures that the sine/cosine waves have progressively **longer wavelengths** as the dimension index $i$ increases. The model can then look at low-frequency components for high position numbers and high-frequency components for low position numbers.
-
-### The Encoding Process
-
-Let's use the search query: **"best family hotel"** and assume a small, 4-dimensional embedding ($d_{\text{model}}=4$) for simplicity.
-
-| Position ($pos$) | Token | Position (pos) | Dim 0 (Even, $\sin$) | Dim 1 (Odd, $\cos$) | Dim 2 (Even, $\sin$) | Dim 3 (Odd, $\cos$) | Final Position Embedding ($\text{PE}_{\text{pos}}$) |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | **best** | $pos=1$ | 0.841 | 0.540 | 0.010 | 0.999 | $[0.841, 0.540, 0.010, 0.999]$ |
-| **2** | **family** | $pos=2$ | 0.909 | -0.416 | 0.020 | 0.999 | $[0.909, -0.416, 0.020, 0.999]$ |
-| **3** | **hotel** | $pos=3$ | 0.141 | -0.990 | 0.030 | 0.999 | $[0.141, -0.990, 0.030, 0.999]$ |
-
-### The Final Input Vector
-
-The final input fed into the first Self-Attention block is the **element-wise sum** of the Token Embedding (TE) and the calculated Positional Embedding (PE):
-
-$$\vec{V}_{\text{input}}^{\text{pos}} = \vec{E}_{\text{token}}^{\text{pos}} + \vec{PE}_{\text{pos}}$$
-
-| Position | Token | $\vec{E}_{\text{token}}$ (Semantic) | + | $\vec{PE}_{\text{pos}}$ (Positional) | = | **$\vec{V}_{\text{input}}$ (Contextualized Input)** |
-| :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **1** | "best" | $[0.2, 0.4, 0.6, 0.8]$ | + | $[0.84, 0.54, 0.01, 0.99]$ | = | $[1.04, 0.94, 0.61, 1.79]$ |
-| **2** | "family" | $[0.3, 0.5, 0.7, 0.9]$ | + | $[0.90, -0.41, 0.02, 0.99]$ | = | $[1.20, 0.09, 0.72, 1.89]$ |
-| **3** | "hotel" | $[0.4, 0.6, 0.8, 1.0]$ | + | $[0.14, -0.99, 0.03, 0.99]$ | = | $[0.54, -0.39, 0.83, 1.99]$ |
-
-Since the positional vector added to "best" is unique from the positional vector added to "family," the Transformer now sees a **distinct input vector** for every token, allowing the Self-Attention mechanism to differentiate the **order** of the words.
-
----
-
-## B.5 Alternative: Learned Positional Encoding
-
-While Sinusoidal encoding is mathematically elegant, the approach used by modern, large-scale models like BERT is **Learned Positional Encoding**.
-
-* **How it Works:** The model maintains a simple **Embedding Table** for positions, just like it does for tokens. This table is indexed by the position (e.g., Position 1, Position 2, ..., up to the maximum sequence length).
-* **Optimization:** The position vectors in this table are **learnable parameters** and are updated alongside the rest of the model's weights during training.
-* **Advantage:** This is typically more effective because the model can **optimize** the positional patterns it finds most useful for the specific task (pCTR/pCVR prediction), rather than being constrained by fixed sine and cosine waves.
