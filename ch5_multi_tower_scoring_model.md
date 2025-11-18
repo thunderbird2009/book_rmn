@@ -6,7 +6,7 @@ This unified model serves dual purposes:
 - **For retrieval** (Chapter 4): Tower embeddings enable semantic similarity search as part of hybrid retrieval (Boolean-targeting + semantic matching) → 10M ads narrowed to 500-1000 candidates in <15ms
 - **For scoring** (this chapter): Same embeddings feed into fusion layers for precise pCTR/pCVR prediction that are important elements in calculating adjusted eCPM (chapter 3) → 200-500 candidates scored in 10-30ms
 
-We expand the basic two-tower framework into a **multi-tower architecture** that separates static user features from dynamic context, integrates ad creative features, and adds fusion layers with prediction heads for CTR/CVR estimation. This design is optimized for both accuracy (scoring precision) and low-latency serving (retrieval speed).
+We expand the basic two-tower framework [5] into a **multi-tower architecture** that separates static user features from dynamic context, integrates ad creative features, and adds fusion layers with prediction heads for CTR/CVR estimation [4, 6]. This design is optimized for both accuracy (scoring precision) and low-latency serving (retrieval speed).
 
 ---
 
@@ -36,7 +36,7 @@ We expand the basic two-tower framework into a **multi-tower architecture** that
     - [6.2 Scoring Phase (Full Model Inference)](#62-scoring-phase-full-model-inference)
   - [7. Why Multi-Tower Design Works](#7-why-multi-tower-design-works)
   - [Summary and Next Steps](#summary-and-next-steps)
-  - [Technical Appendices](#technical-appendices)
+  - [References and Further Reading](#references-and-further-reading)
 
 ---
 
@@ -78,7 +78,7 @@ This chapter details the neural architecture that produces these predictions whi
 
 4. **Training data distribution**: Click/conversion patterns are placement-specific. A search-trained model will perform poorly on product pages due to distribution shift.
 
-**Industry practice**: Major ad platforms (Google Ads, Amazon Ads, Meta) maintain **separate CTR/CVR models per placement type** or **placement families** (e.g., "search-like" placements vs. "browse-like" placements).
+**Industry practice**: Major ad platforms (Google Ads, Amazon Ads, Meta) maintain **separate CTR/CVR models per placement type** or **placement families** (e.g., "search-like" placements vs. "browse-like" placements) [5, 6, 14].
 
 **Architectural sharing opportunities**:
 - **Static User Tower**: Can be shared across all placement models (user demographics/history don't change by placement)
@@ -132,7 +132,7 @@ Where:
 **Retrieval loss** (optional but recommended):
 $$\mathcal{L}_{\text{retrieval}} = -\log \frac{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}})}{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}}) + \sum_{j} \exp(\vec{Q} \cdot \vec{E}_{\text{ad}_j}^{\text{negative}})} \tag{5.2}$$
 
-This sampled softmax loss ensures that:
+This sampled softmax loss [5] ensures that:
 - Query embedding $\vec{Q}$ (combining user + context) is close to clicked ad embeddings
 - Query embedding is far from non-clicked (negative) ad embeddings
 - Towers explicitly optimize for semantic retrieval recall (the embedding-based component), not just scoring accuracy
@@ -435,7 +435,7 @@ if __name__ == "__main__":
 **Note**: This section describes the **search placement** implementation of the Dynamic Context Tower. For other placement types (product pages, category browse, homepage), the context tower architecture differs—e.g., replacing the query Transformer with product embedding lookup or category feature encoding—while the overall three-tower pattern remains consistent.
 
 **Input features** (computed online per request):
-- Search query: Text string (tokenized → Transformer encoder with positional embeddings, as detailed earlier)
+- Search query: Text string (tokenized → Transformer encoder [1] with positional embeddings, as detailed in the technical appendix [15])
 - Session context: `num_queries_in_session`, `time_since_session_start`, `pages_viewed`
 - Real-time signals: `hour_of_day`, `day_of_week`, `is_weekend`, `device_orientation` (mobile)
 - Geo-context: `city`, `current_location_type` (home/work/travel)
@@ -447,6 +447,7 @@ Query text → Tokenizer → Token Embeddings + Positional Embeddings
 Transformer Encoder (2-4 layers, 8 attention heads)
   ↓
 Average Pooling → E_query [dim=128]
+  (Alternative: Use [CLS] token output [12] for sequence representation)
 
 Categorical features (hour_of_day, city, etc.) → Embedding layers
 Numerical features (num_queries, time_since_start) → Normalization
@@ -469,7 +470,7 @@ Output: E_context_dynamic [dim=128]
 
 **Input features** (pre-computed offline for all ads):
 - Creative text: `ad_title`, `ad_description`, `landing_page_url`
-- Visual features: Image embedding from pre-trained ResNet or CLIP (frozen or fine-tuned)
+- Visual features: Image embedding from pre-trained ResNet [8] or CLIP [7] (frozen or fine-tuned)
 - Advertiser metadata: `advertiser_id`, `brand_id`, `campaign_type`, `industry_category`
 - Historical performance: `historical_ctr`, `historical_cvr`, `total_impressions`, `ad_age_days`
 
@@ -494,7 +495,7 @@ Output: E_ad [dim=128]
 ```
 
 **Pre-computation**:
-- Compute for all eligible ads (10M-100M) in daily batch → store in ad index (FAISS/ScaNN)
+- Compute for all eligible ads (10M-100M) in daily batch → store in ad index (FAISS [3] / ScaNN, or alternative structures like HNSW [13])
 - Incremental updates: New ads or creative changes trigger re-encoding within 5-15 minutes
 
 > **Code Listings 5.2-5.5**: Due to their length (~100-120 lines each), complete implementations for the Ad Tower (5.2), Dynamic Context Tower (5.3), Fusion Layers (5.4), and ESMM Model (5.5) are available in the accompanying Jupyter notebook: `code/ch5_multi_tower_scoring_model.ipynb`. These implementations include full error handling, comprehensive tests, and production-ready features.
@@ -525,7 +526,7 @@ Output logits (for CTR/CVR prediction)
 
 #### Pattern B: Cross-Feature Interaction + MLP (More Expressive)
 
-Modern scoring models add explicit **cross-tower interactions** before the MLP to capture feature combinations. **This pattern explicitly reflects the retrieval objective** (see explanation below).
+Modern scoring models add explicit **cross-tower interactions** before the MLP to capture feature combinations [4]. **This pattern explicitly reflects the retrieval objective** (see explanation below).
 
 ```
 Tower outputs: E_user, E_context, E_ad [each 128-d]
@@ -575,7 +576,7 @@ $$\mathcal{L}_{\text{CTR}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\hat{p}
 
 where $y_i \in \{0, 1\}$ is the click label and $\hat{p}_i$ is the predicted CTR.
 
-**Calibration**: Post-training, apply isotonic regression or Platt scaling to map raw model outputs to calibrated probabilities that match observed click rates. This ensures pCTR predictions are accurate for auction eCPM calculations.
+**Calibration**: Post-training, apply isotonic regression [10] or Platt scaling [9] to map raw model outputs to calibrated probabilities that match observed click rates. This ensures pCTR predictions are accurate for auction eCPM calculations.
 
 ---
 
@@ -608,7 +609,7 @@ Typical weights: $\alpha=0.7$, $\beta=0.3$ (CTR has more training samples than C
 
 ### 3.3 Advanced: Multi-Task with Auxiliary Losses (ESMM Pattern)
 
-For sparse conversion events, use the **Entire Space Multi-Task Model (ESMM)** pattern:
+For sparse conversion events, use the **Entire Space Multi-Task Model (ESMM)** pattern [2]:
 
 ```
 Fusion output [64-d]
@@ -909,22 +910,22 @@ def train_end_to_end(user_tower, context_tower, ad_tower, esmm_model,
 
 ### 5.3 Calibration
 
-Raw model outputs often have **calibration drift**: predicted pCTR=0.05 may correspond to observed CTR=0.03. This breaks auction dynamics and budget pacing because the eCPM formula (pCTR × bid × quality_score) relies on accurate probability estimates.
+Raw model outputs often have **calibration drift**: predicted pCTR=0.05 may correspond to observed CTR=0.03 [11]. This breaks auction dynamics and budget pacing because the eCPM formula (pCTR × bid × quality_score) relies on accurate probability estimates.
 
 **Post-training calibration methods**:
 
-1. **Isotonic Regression** (most common):
+1. **Isotonic Regression** [10] (most common):
    - Bin validation set predictions into 100-1000 buckets
    - Fit a piecewise-constant mapping: $\text{calibrated\_pCTR} = f(\text{raw\_pCTR})$ that matches observed CTR in each bucket
    - Pro: Non-parametric, flexible
    - Con: Requires large validation set; bins can be unstable
 
-2. **Platt Scaling**:
+2. **Platt Scaling** [9]:
    - Fit a logistic regression on top of model logits: $\text{calibrated\_pCTR} = \sigma(a \cdot \text{logit} + b)$
    - Pro: Simple, two parameters
    - Con: Assumes logistic relationship (may underfit complex calibration errors)
 
-3. **Temperature Scaling**:
+3. **Temperature Scaling** [11]:
    - Scale logits by a learned temperature $T$: $\text{calibrated\_pCTR} = \sigma(\text{logit} / T)$
    - Pro: Single parameter, preserves ranking order
    - Con: Global scaling may not fix local calibration issues
@@ -981,7 +982,7 @@ class ModelCalibrator:
 ```
 
 **Calibration metrics**:
-- **Expected Calibration Error (ECE)**: Measures average difference between predicted probabilities and observed frequencies across probability bins
+- **Expected Calibration Error (ECE)** [11]: Measures average difference between predicted probabilities and observed frequencies across probability bins
 - **Reliability diagram**: Scatter plot of predicted vs. observed probabilities (perfect calibration = diagonal line)
 
 > **Note**: Complete implementation with ECE computation, reliability diagram visualization, and before/after comparison is available in the notebook.
@@ -994,7 +995,7 @@ The multi-tower model serves two roles in production:
 
 ### 6.1 Retrieval Phase (ANN Search)
 
-- **Pre-compute** $\vec{E}_{\text{ad}}$ for all ads → store in ANN index (FAISS/ScaNN)
+- **Pre-compute** $\vec{E}_{\text{ad}}$ for all ads → store in ANN index (FAISS [3] or ScaNN)
 - **At request time**:
   1. Fetch $\vec{E}_{\text{user}}^{\text{static}}$ from cache (Redis)
   2. Compute $\vec{E}_{\text{context}}^{\text{dynamic}}$ online (Transformer encoder)
@@ -1045,7 +1046,7 @@ The multi-tower architecture is **not just a modeling choice**—it's driven by 
    - New ad uploaded → encode $\vec{E}_{\text{ad}}$, insert into ANN index within minutes
    - No need to retrain the full model for every new entity
 
-This architecture is the **backbone of modern recommendation and ad systems** at Google, Meta, Pinterest, Airbnb, and others. The key innovation is recognizing that **embeddings are the universal interface** between retrieval, ranking, and downstream systems.
+This architecture is the **backbone of modern recommendation and ad systems** at Google, Meta, Pinterest, Airbnb [14], and others. The key innovation is recognizing that **embeddings are the universal interface** between retrieval, ranking, and downstream systems.
 
 ---
 
@@ -1068,11 +1069,35 @@ This chapter presented the complete multi-tower ranking model for production ad 
 
 ---
 
-## Technical Appendices
+## References and Further Reading
 
-For detailed technical explanations of advanced concepts used in this chapter, including:
-- **Appendix A:** Sequential Encoder for Contextual Search Queries (Transformer-based query encoding)
-- **Appendix B:** Positional Embedding in Transformers (why and how positional information is injected)
+1. Vaswani, A., Shazeer, N., Parmar, N., et al. (2017). "Attention Is All You Need." *Advances in Neural Information Processing Systems (NeurIPS)*. The foundational paper introducing the Transformer architecture with self-attention mechanism and positional encoding, which powers the Dynamic Context Tower's query understanding.
 
-Please refer to the separate document: **`app5_model_tech.md`**
+2. Ma, X., Zhao, L., Huang, G., et al. (2018). "Entire Space Multi-Task Model: An Effective Approach for Estimating Post-Click Conversion Rate." *SIGIR 2018*. Alibaba's ESMM paper introducing the method to eliminate sample selection bias in CVR prediction by jointly modeling CTR and CTCVR on the entire impression space.
+
+3. Johnson, J., Douze, M., & Jégou, H. (2019). "Billion-scale similarity search with GPUs." *IEEE Transactions on Big Data*. Describes FAISS library architecture and optimization techniques for approximate nearest neighbor search at scale, used for embedding-based ad retrieval.
+
+4. Guo, H., Tang, R., Ye, Y., Li, Z., & He, X. (2017). "DeepFM: A Factorization-Machine based Neural Network for CTR Prediction." *IJCAI 2017*. Introduces deep learning approaches for click-through rate prediction combining factorization machines with deep neural networks for feature interaction learning.
+
+5. Covington, P., Adams, J., & Sargin, E. (2016). "Deep Neural Networks for YouTube Recommendations." *RecSys 2016*. Google's two-tower retrieval architecture for candidate generation at scale, demonstrating the effectiveness of separate user and item towers for billion-scale recommendation systems.
+
+6. Zhou, G., Zhu, X., Song, C., et al. (2018). "Deep Interest Network for Click-Through Rate Prediction." *KDD 2018*. Alibaba's approach to modeling user interests dynamically using attention mechanisms, relevant to the user tower's interest embedding design.
+
+7. Radford, A., Kim, J. W., Hallacy, C., et al. (2021). "Learning Transferable Visual Models From Natural Language Supervision." *ICML 2021*. OpenAI's CLIP model for joint vision-language understanding, applicable to ad creative image embeddings in the Ad Tower.
+
+8. He, K., Zhang, X., Ren, S., & Sun, J. (2016). "Deep Residual Learning for Image Recognition." *CVPR 2016*. ResNet architecture commonly used for extracting image embeddings from ad creatives.
+
+9. Niculescu-Mizil, A., & Caruana, R. (2005). "Predicting Good Probabilities With Supervised Learning." *ICML 2005*. Introduces calibration techniques including Platt scaling for converting model scores into well-calibrated probabilities.
+
+10. Zadrozny, B., & Elkan, C. (2002). "Transforming Classifier Scores into Accurate Multiclass Probability Estimates." *KDD 2002*. Describes isotonic regression for probability calibration, used to refine raw model predictions into accurate pCTR/pCVR estimates.
+
+11. Guo, C., Pleiss, G., Sun, Y., & Weinberger, K. Q. (2017). "On Calibration of Modern Neural Networks." *ICML 2017*. Analyzes why modern neural networks produce poorly calibrated probabilities and introduces Expected Calibration Error (ECE) metric.
+
+12. Devlin, J., Chang, M. W., Lee, K., & Toutanova, K. (2019). "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding." *NAACL 2019*. Introduces BERT architecture with learned positional embeddings and [CLS] token for sequence representation, applicable to query and ad text encoding.
+
+13. Malkov, Y. A., & Yashunin, D. A. (2018). "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs." *IEEE Transactions on Pattern Analysis and Machine Intelligence*. Describes HNSW algorithm, an alternative ANN index structure to FAISS for embedding-based retrieval.
+
+14. Grbovic, M., & Cheng, H. (2018). "Real-time Personalization using Embeddings for Search Ranking at Airbnb." *KDD 2018*. Industry case study demonstrating embedding-based ranking in production search systems with latency constraints similar to ad serving requirements.
+
+15. **Technical Appendix**: For detailed explanations of Sequential Encoder architecture (Transformer-based query encoding) and Positional Embedding mechanisms, see `app5_model_tech.md`.
 

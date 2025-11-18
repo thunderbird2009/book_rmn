@@ -4,7 +4,6 @@ At its core, every ad serving system answers one fundamental question: which ads
 
 This chapter introduces the architecture of a production-grade RMN ad serving path. We examine the core subsystems—Ad Index, Budget & Pacing, Retrieval, Scoring, Auction, and Creative Assembly—that work in concert to deliver ads at scale. We walk through the end-to-end request flow from a shopper's page load to ad impression, highlighting the time budgets, decision points, and data flows that govern the system. We then examine each component's responsibilities and how they interact to enable sub-100ms response times at tens of thousands of queries per second.
 
-This chapter maintains a high-level architectural view, establishing the conceptual framework and system boundaries. Subsequent chapters dive deep into each subsystem: Chapter 3 details auction mechanisms and quality scoring, Chapter 4 explores retrieval with embedding-based models, Chapter 5 examines multi-tower ranking architectures, and later chapters cover budget control algorithms and creative optimization strategies. Our goal here is to build a mental model of the complete system—what happens, in what order, and why—before we examine the internals of each component.
 
 By the end of this chapter, you will understand the architectural blueprint that underlies modern RMN ad serving, the latency and scale requirements that shape design decisions, and how the pieces fit together to create a real-time decisioning engine that handles billions of requests per day.
 
@@ -12,10 +11,10 @@ By the end of this chapter, you will understand the architectural blueprint that
 - [Chapter 2: Ad Serving Architecture for Retail Media Networks](#chapter-2-ad-serving-architecture-for-retail-media-networks)
   - [1. End-to-End Request Flow and Component Interactions](#1-end-to-end-request-flow-and-component-interactions)
     - [1.1 Standalone Ad Placement Flow](#11-standalone-ad-placement-flow)
-    - [2.2 Search-Integrated Ad Placement Flow](#22-search-integrated-ad-placement-flow)
-    - [2.3 Architectural Implications](#23-architectural-implications)
-    - [2.4 Time Budget Allocation](#24-time-budget-allocation)
-    - [2.5 Scale Requirements](#25-scale-requirements)
+    - [1.2 Search-Integrated Ad Placement Flow](#12-search-integrated-ad-placement-flow)
+    - [1.3 Architectural Implications](#13-architectural-implications)
+    - [1.4 Time Budget Allocation](#14-time-budget-allocation)
+    - [1.5 Scale Requirements](#15-scale-requirements)
   - [2. Core Components of the Ad Serving Path](#2-core-components-of-the-ad-serving-path)
     - [2.1 AdServer](#21-adserver)
     - [2.2 ML Inference Service](#22-ml-inference-service)
@@ -26,13 +25,16 @@ By the end of this chapter, you will understand the architectural blueprint that
     - [2.7 CreativeSvc (Creative Assembly Service)](#27-creativesvc-creative-assembly-service)
     - [2.8 ProductSvc (Product Catalog Service)](#28-productsvc-product-catalog-service)
   - [3. Design Principles and Trade-offs](#3-design-principles-and-trade-offs)
-    - [4.1 Latency vs. Accuracy](#41-latency-vs-accuracy)
-    - [4.2 Recall vs. Precision](#42-recall-vs-precision)
-    - [4.3 Consistency vs. Availability](#43-consistency-vs-availability)
-    - [4.4 Statelessness](#44-statelessness)
-    - [4.5 Observability](#45-observability)
+    - [3.1 Latency vs. Accuracy](#31-latency-vs-accuracy)
+    - [3.2 Recall vs. Precision](#32-recall-vs-precision)
+    - [3.3 Consistency vs. Availability](#33-consistency-vs-availability)
+    - [3.4 Statelessness](#34-statelessness)
+    - [3.5 Observability](#35-observability)
   - [4. Summary and Next Steps](#4-summary-and-next-steps)
   - [References and Further Reading](#references-and-further-reading)
+    - [Industry Engineering Blogs on Ad Serving Architecture](#industry-engineering-blogs-on-ad-serving-architecture)
+    - [Technology Documentation](#technology-documentation)
+    - [Academic Research on Ad Auctions](#academic-research-on-ad-auctions)
 
 ---
 
@@ -65,49 +67,47 @@ sequenceDiagram
     
     Note over AdServer: Request arrives (t=0ms)
     
-    AdServer->>FeatureStore: Fetch features (user, product, context)
-    FeatureStore-->>AdServer: Feature vectors (t=3ms)
+    AdServer->>FeatureStore: Fetch user/product embeddings
+    FeatureStore-->>AdServer: Embeddings (t=3ms)
     
-    AdServer->>AdIndex: Retrieve candidates (enriched query)
-    AdIndex-->>AdServer: ~1,000 candidate campaigns (t=10ms)
+    AdServer->>AdIndex: Query (keywords, geo, device + embeddings)
+    Note over AdIndex: Internal 3-stage processing:<br/>1. Boolean retrieval (100K-1M)<br/>2. Semantic ANN search (500-1K)<br/>3. Lightweight scoring (200-500)
+    AdIndex-->>AdServer: 200-500 ranked candidates (t=18ms)
     
-    AdServer->>BudgetSvc: Check budget eligibility (1,000 campaigns)
-    BudgetSvc-->>AdServer: 850 eligible campaigns (t=14ms)
+    AdServer->>BudgetSvc: Check budget eligibility (200-500 campaigns)
+    BudgetSvc-->>AdServer: 180-450 eligible campaigns (t=21ms)
     
-    Note over AdServer: Compute quality score components
-    AdServer->>FeatureStore: Fetch quality signals (850 campaigns)
-    FeatureStore-->>AdServer: Ad_Relevance, Landing_Page_Quality (t=16ms)
-    
-    AdServer->>AdServer: Preliminary ranking (Bid × Ad_Relevance)
-    Note over AdServer: Select top 200-300 for ML inference (t=17ms)
-    
-    AdServer->>MLInference: Score request (250 candidates + features)
+    AdServer->>MLInference: Score request (200-300 candidates + features)
     MLInference->>MLInference: Model forward pass (pCTR, pCVR)
-    MLInference-->>AdServer: Predictions for 250 candidates (t=37ms)
+    MLInference-->>AdServer: Predictions for 200-300 candidates (t=48ms)
     
-    Note over AdServer: Compute Adjusted_eCPM & rank
+    Note over AdServer: Compute Quality Score + Adjusted_eCPM
     AdServer->>AdSvc: Fetch bid properties (top 20)
-    AdSvc-->>AdServer: Bids, strategies, metadata (t=40ms)
+    AdSvc-->>AdServer: Bids, strategies, metadata (t=51ms)
     
-    AdServer->>AdServer: Run auction (GSP, 4 slots)
-    Note over AdServer: Select winners & calculate prices (t=42ms)
+    AdServer->>AdServer: Rank by Adjusted_eCPM (t=52ms)
+    AdServer->>AdServer: Run auction (GSP, 4 slots) (t=53ms)
     
     AdServer->>CreativeSvc: Assemble creatives (4 winners)
-    CreativeSvc-->>AdServer: Final ad payloads (t=47ms)
+    CreativeSvc-->>AdServer: Final ad payloads (t=58ms)
     
     AdServer-->>Frontend: Ad Response (4 ads)
     Frontend-->>User: Display ads in dedicated unit
     
-    Note over AdServer: Total latency: 47ms
+    Note over AdServer: Total latency: 58ms
 ```
 
-In this flow, the **AdServer** orchestrates the complete pipeline from retrieval through auction. It first fetches features from the FeatureStore, then queries the AdIndex for ~1,000 candidates matching targeting criteria. After filtering by budget eligibility, it computes lightweight quality score components (Ad_Relevance, Landing_Page_Quality) on all 850 candidates (~2ms), then performs preliminary ranking using Bid × Ad_Relevance to select the top 200-300 candidates for expensive ML inference.
+In this flow, the **AdServer** orchestrates the complete pipeline from retrieval through auction. It first fetches user and product embeddings from the FeatureStore, then queries the AdIndex with enriched context (keywords, geo, device, embeddings). 
 
-The **ML Inference Service** is a pure stateless backend (TorchServe or TensorFlow Serving) that receives feature vectors and returns pCTR/pCVR predictions (~20ms). The AdServer then computes Adjusted_eCPM = Bid × pCTR × 1000 × Quality_Score for final ranking, fetches bid properties from AdSvc for the top 20, runs the auction (GSP mechanism), and assembles final creatives via CreativeSvc.
+The **AdIndex** performs a 3-stage pipeline internally: Boolean retrieval (100K-1M candidates) → Semantic ANN search (500-1K) → Lightweight scoring (200-500), returning ranked candidates in ~15ms (detailed in Chapter 4). This multi-stage retrieval architecture [1] reduces candidates by multiple orders of magnitude at each stage under tight latency constraints.
 
-This architecture optimizes computation order: cheap quality score computation on 1,000 ads before expensive ML inference on 250 ads, saving 10-20ms and reducing GPU costs. The entire flow completes in ~47ms, well within the 100ms latency budget for standalone placements. The frontend makes an asynchronous JavaScript call to fetch ads after the main page content loads, so ad latency does not block page rendering. This pattern is common for display ads, recommendation widgets, and below-the-fold placements.
+After budget checking via BudgetSvc, the **AdServer** sends ~200-300 eligible candidates to the **ML Inference Service** (TorchServe/TensorFlow Serving), which returns pCTR/pCVR predictions in 25-30ms.
 
-### 2.2 Search-Integrated Ad Placement Flow
+The AdServer then computes **Quality Score** using the multiplicative formula `(pCVR)^w1 × (Ad_Relevance)^w2 × (Landing_Page_Quality)^w3` (see Chapter 3), distinct from AdIndex's lightweight score as it uses fresh ML predictions. Final ranking uses Adjusted_eCPM = Bid × pCTR × 1000 × Quality_Score.
+
+The entire flow completes in ~58ms. The frontend makes asynchronous JavaScript calls to fetch ads, so latency doesn't block page rendering—common for display ads and below-the-fold placements.
+
+### 1.2 Search-Integrated Ad Placement Flow
 
 The second pattern integrates ads directly into search results, with sponsored products interleaved among organic listings. This requires tight coordination between the ad server and the e-commerce search/ranking system, and imposes stricter latency constraints since ads must be ready before the search results page is rendered.
 
@@ -134,7 +134,7 @@ sequenceDiagram
         SearchSvc-->>SearchOrchestrator: Top 100 organic product IDs (t=60ms)
     and Sponsored Ads
         SearchOrchestrator->>AdServer: Ad request (query, context)
-        Note over AdServer: Same pipeline as Figure 2.1:<br/>FeatureStore → AdIndex → BudgetSvc<br/>→ Quality Scores → ML Inference → Auction
+        Note over AdServer: Same 3-stage AdIndex pipeline:<br/>Boolean �?Semantic �?Lightweight Scoring<br/>Then: Budget check �?ML Inference �?Auction
         AdServer-->>SearchOrchestrator: 10 sponsored product IDs + ad metadata (t=55ms)
     end
     
@@ -172,9 +172,11 @@ Key differences in the search-integrated flow:
 **Request for More Ads:**
 - The orchestrator may request 10 ads but only use 4, to ensure high-quality ads are available even if some are filtered during interleaving (e.g., duplicate products, policy violations).
 
-### 2.3 Architectural Implications
+### 1.3 Architectural Implications
 
 The choice between standalone and search-integrated patterns drives several architectural decisions:
+
+**Table 2.1: Comparison of Standalone vs. Search-Integrated Ad Placement Patterns**
 
 | **Aspect**               | **Standalone Placement**                  | **Search-Integrated Placement**              |
 |--------------------------|------------------------------------------|---------------------------------------------|
@@ -186,45 +188,46 @@ The choice between standalone and search-integrated patterns drives several arch
 
 For the remainder of this chapter, we focus on time budgets and scale requirements for the **standalone placement pattern** (the more relaxed case). The search-integrated pattern's tighter constraints are addressed in Chapter 4, where we explore ranking model optimizations that enable sub-30ms inference.
 
-### 2.4 Time Budget Allocation
+### 1.4 Time Budget Allocation
 
 A typical RMN ad server targets **p99 latency under 100ms** for standalone placements to avoid degrading page load times. Within that budget, the subsystems allocate time roughly as follows:
 
-| **Stage**                     | **Time Budget** | **Percentage** | **Primary Bottleneck**                |
-|-------------------------------|-----------------|----------------|---------------------------------------|
-| Feature Fetching              | 2–3ms           | 3%             | Redis/Memcached lookups               |
-| Retrieval (Ad Index)          | 5–10ms          | 10%            | Index lookup, network I/O             |
-| Budget Check                  | 2–5ms           | 5%             | Distributed counter reads             |
-| Quality Score Computation     | 1–2ms           | 2%             | FeatureStore lookups, formula compute |
-| Preliminary Ranking           | 1–2ms           | 2%             | In-memory sorting                     |
-| ML Inference                  | 20–30ms         | 30%            | GPU forward pass, batching overhead   |
-| Final Ranking & Auction       | 2–5ms           | 5%             | eCPM compute, winner selection        |
-| Bid Property Fetching         | 2–3ms           | 3%             | AdSvc cache/DB lookups                |
-| Creative Assembly             | 3–8ms           | 8%             | Asset retrieval, JSON serialization   |
-| Network & Overhead            | 10–20ms         | 20%            | Request parsing, logging, response    |
+**Table 2.2: Latency Budget Breakdown for Standalone Ad Placement (Target: <100ms p99)**
 
-**ML Inference** is the most expensive stage, consuming 20-30ms for GPU inference on 200-300 candidates. However, the optimized architecture significantly reduces this cost compared to naive approaches:
-- **Without preliminary ranking:** Scoring 1,000 candidates would take ~80-100ms.
-- **With preliminary ranking:** Scoring 250 candidates takes ~25ms, saving 55-75ms.
-- **Cost savings:** Reducing GPU inference set size by 75% (1,000 → 250) reduces inference costs proportionally.
+| **Stage**                                      | **Time Budget** | **Percentage** | **Component**     | **Primary Bottleneck**                |
+|------------------------------------------------|-----------------|----------------|-------------------|---------------------------------------|
+| Feature Fetching (user/product embeddings)    | 2–3ms           | 3%             | FeatureStore      | Redis [2]/Memcached lookups           |
+| **AdIndex (multi-stage retrieval+scoring):**   | **12–18ms**     | **18%**        | **AdIndex**       | **Index lookup, ANN search, scoring** |
+| - Boolean retrieval                            | 2–5ms           | 5%             | AdIndex           | Inverted index lookup                 |
+| - Semantic ANN search                          | 3–8ms           | 8%             | AdIndex           | Vector similarity computation         |
+| - Lightweight scoring                          | 1–2ms           | 2%             | AdIndex           | Dot products, weighted combinations   |
+| - Internal overhead                            | 1–3ms           | 3%             | AdIndex           | Network, data fetching                |
+| Budget Check (on 200-500 candidates)          | 2–3ms           | 3%             | BudgetSvc         | Distributed counter reads             |
+| ML Inference (200-300 candidates)              | 20–30ms         | 30%            | MLInference       | GPU forward pass, batching overhead   |
+| Quality Score Computation (auction)            | 1ms             | 1%             | AdServer          | Formula evaluation                    |
+| Final Ranking (Adjusted_eCPM)                  | 1ms             | 1%             | AdServer          | eCPM compute, sorting                 |
+| Auction (GSP)                                  | 1ms             | 1%             | AdServer          | Winner selection, price calculation   |
+| Bid Property Fetching                          | 2–3ms           | 3%             | AdSvc             | Cache/DB lookups                      |
+| Creative Assembly                              | 3–8ms           | 8%             | CreativeSvc       | Asset retrieval, JSON serialization   |
+| Network & Overhead                             | 10–20ms         | 20%            | Infrastructure    | Request parsing, logging, response    |
 
-**Quality Score Computation** is lightweight (~1-2ms for 1,000 ads) because it involves simple feature lookups from FeatureStore (cached in Redis) and formula evaluation (Bid × Ad_Relevance × Landing_Page_Quality × pCVR_factor). This cheap operation happens *before* expensive ML inference, enabling efficient preliminary ranking.
+**ML Inference** consumes 20-30ms for GPU inference on 200-300 candidates. The architecture reduces this cost dramatically compared to naive approaches:
+- **Without AdIndex optimization:** Scoring 100K candidates would require ~10-20 seconds (infeasible for real-time).
+- **With AdIndex 3-stage pipeline:** Narrows 100K → 200-500 in 12-18ms, then scores 200-300 with ML (~25ms).
 
-**Retrieval** must be fast to leave headroom for ranking. Index sharding, in-memory data structures, and approximate nearest neighbor (ANN) search (for embedding-based retrieval) keep this stage under 10ms. Chapter 4 details these techniques.
+**AdIndex Processing** happens entirely within AdIndex before returning to AdServer. The 3-stage pipeline uses inverted indices (Boolean), vector similarity (ANN), and simple scoring formulas on stored features (lightweight scoring). Chapter 4 covers implementation details.
 
-**Auction, Bid Fetching, and Creative Assembly** are lightweight by comparison, each completing in single-digit milliseconds. However, poor design (e.g., synchronous database queries in Creative Assembly) can introduce tail latency spikes that violate SLAs.
+**Quality Score for Auction** is computed in AdServer after ML inference returns pCTR/pCVR. Uses multiplicative formula (Chapter 3) taking ~1ms for 200-300 candidates.
 
-**Latency Optimization Insight:**
+**Auction, Bid Fetching, and Creative Assembly** are lightweight, each completing in single-digit milliseconds. Poor design (e.g., synchronous database queries) can introduce tail latency spikes that violate SLAs.
 
-The key architectural decision is **computation order**: run cheap operations (quality scores, preliminary ranking) on the full candidate set (1,000 ads) *before* expensive operations (ML inference) on a reduced set (250 ads). This reduces end-to-end latency by 20-40% and GPU costs by 70-80% compared to scoring all candidates with ML.
-
-### 2.5 Scale Requirements
+### 1.5 Scale Requirements
 
 Production RMN ad servers handle **10,000–50,000 queries per second (QPS)** sustained, with peak traffic 2–3× higher during promotional events (Black Friday, Prime Day). To meet this scale:
 
 - **Horizontal Scaling:** All services (Ad Index, Budget, Ranking, Auction, Creative) are stateless and horizontally scalable behind load balancers.
-- **Caching:** Frequently accessed data (popular keywords, top campaigns, creative assets) are cached in Redis or Memcached to reduce backend load.
-- **Asynchronous Logging:** Impression and click events are logged asynchronously to Kafka or Kinesis to avoid blocking the critical path.
+- **Caching:** Frequently accessed data (popular keywords, top campaigns, creative assets) are cached in Redis [2] or Memcached to reduce backend load.
+- **Asynchronous Logging:** Impression and click events are logged asynchronously to Kafka [3] or Kinesis to avoid blocking the critical path.
 - **Regional Deployment:** Geo-distributed deployments reduce network latency for global traffic.
 
 We explore scalability patterns, caching strategies, and infrastructure considerations in Chapter 5.
@@ -246,31 +249,30 @@ Key responsibilities:
 - Coordinate parallel or sequential calls to FeatureStore, AdIndex, BudgetSvc, ML Inference Service, AdSvc, and CreativeSvc.
 - Handle timeouts, retries, and fallbacks gracefully (e.g., serve cached ads if ML inference times out).
 
-**Candidate Retrieval Pipeline:**
-- Fetch features from FeatureStore (user history, product attributes, context signals).
-- Query AdIndex with enriched query to retrieve ~1,000 candidate campaigns matching targeting criteria.
-- Call BudgetSvc to filter out campaigns that have exhausted budgets or require pacing throttling.
+**Feature Fetching & AdIndex Query:**
+- Fetch user and product embeddings from FeatureStore.
+- Query AdIndex with enriched context (keywords, geo, device, embeddings).
+- **Note:** AdIndex executes its 3-stage pipeline (Boolean �?Semantic �?Lightweight scoring) internally and returns 200-500 ranked candidates (Chapter 4).
 
-**Quality Score Computation:**
-- Fetch quality signal features (Ad_Relevance, Landing_Page_Quality, pCVR components) from FeatureStore for budget-eligible candidates.
-- Compute quality scores using platform-defined multiplicative formula (typically 0.5–1.5 range).
-- This is a lightweight operation (~1-2ms for 1,000 ads) executed on CPU.
-
-**Preliminary Ranking:**
-- Rank candidates by Bid × Ad_Relevance (or Bid × Quality_Score if pCVR is pre-computed).
-- Select top 200-300 candidates for expensive ML inference, reducing GPU costs and latency.
-- This optimization ensures expensive operations (20-40ms) run on a smaller candidate set.
+**Budget Filtering:**
+- Call BudgetSvc to filter candidates that have exhausted budgets or require pacing.
+- Operates on 200-500 candidates from AdIndex.
 
 **ML Inference Coordination:**
-- Prepare feature vectors for top candidates and call ML Inference Service (TorchServe, TensorFlow Serving).
+- Prepare feature vectors for budget-eligible candidates (~200-300) and call ML Inference Service (TorchServe, TensorFlow Serving).
 - Receive pCTR and pCVR predictions from the stateless inference backend.
 - Handle batching if multiple ad requests arrive concurrently (dynamic batching at inference service).
 
-**Final Ranking & Auction:**
-- Compute Adjusted_eCPM = Bid × pCTR × 1000 × Quality_Score for each candidate.
-- Rank by Adjusted_eCPM and select top 20-50 for auction.
+**Quality Score Computation & Final Ranking:**
+- Compute **Quality Score** using multiplicative formula (Chapter 3):
+  `Quality_Score = (pCVR)^w1 × (Ad_Relevance)^w2 × (Landing_Page_Quality)^w3`
+- Uses fresh ML predictions, unlike AdIndex's lightweight score which uses historical features.
+- Compute Adjusted_eCPM = Bid × pCTR × 1000 × Quality_Score and rank candidates.
+- Select top 20-50 for auction.
+
+**Auction:**
 - Fetch bid properties (max bid, bid strategy, campaign metadata) from AdSvc.
-- Run auction mechanism (Generalized Second-Price or VCG) to select winners and calculate prices.
+- Run auction mechanism (Generalized Second-Price [7][8] or VCG) to select winners and calculate prices.
 
 **Creative Assembly:**
 - Call CreativeSvc to assemble final ad payloads for winning campaigns.
@@ -280,15 +282,15 @@ The AdServer is stateless and can be dynamically scaled out for high request thr
 
 **Architectural Rationale:**
 
-This design separates **orchestration logic** (AdServer, CPU-optimized) from **specialized computation** (ML Inference Service, GPU-optimized; FeatureStore, Redis-backed). Key benefits:
-- **Independent Scaling:** Scale ML inference GPUs separately from orchestration CPUs based on workload.
-- **Computation Order Optimization:** Run cheap operations (quality scores) on large candidate sets before expensive operations (ML inference) on small sets.
-- **Clear Separation of Concerns:** AdServer owns all business logic (ranking, auction, quality scores); backend services are pure computation engines.
-- **Technology Flexibility:** Replace ML framework (PyTorch → TensorFlow) or feature store (Feast → Tecton) without changing orchestration logic.
+This design separates orchestration (AdServer, CPU) from specialized computation (ML Inference, GPU; AdIndex retrieval/scoring; FeatureStore, Redis [2]). Benefits:
+- **Independent Scaling:** Scale GPUs, CPUs, and retrieval clusters separately.
+- **Computation Order Optimization:** Narrow candidates cheaply before expensive ML inference.
+- **Clear Separation of Concerns:** AdServer orchestrates; specialized services compute.
+- **Technology Flexibility:** Swap ML frameworks or feature stores without changing orchestration.
 
-This matches the architecture used by Google Ads and Meta Ads, where serving layers orchestrate while specialized services compute.
+This matches the architecture used by major platforms where serving layers orchestrate while specialized services compute.
 
-**For complete details on auction mechanics and how Ads are scored in an auction, see Chapter 3: Auction Mechanisms and Quality Scoring.**
+**For auction mechanics and Quality Score details, see Chapter 3.**
 
 ### 2.2 ML Inference Service
 
@@ -361,7 +363,7 @@ Each pod runs a stateless inference service with a GPU attached. Kubernetes or c
 **Optimization Strategies:**
 - **Model Distillation:** Train smaller models that approximate larger teacher models, reducing inference time by 2-3×.
 - **Quantization:** Use INT8 or FP16 precision instead of FP32 to reduce memory bandwidth and increase throughput (1.5-2× speedup).
-- **Feature Caching:** If many candidates share features (e.g., user embeddings), cache embeddings in Redis and reuse across requests.
+- **Feature Caching:** If many candidates share features (e.g., user embeddings), cache embeddings in Redis [2] and reuse across requests.
 - **Early Exit:** For two-stage ranking, use a lightweight model for initial scoring and a heavy model for re-ranking top-20.
 
 **Statelessness & Scalability:**
@@ -379,7 +381,7 @@ This enables:
 
 **Separation from Orchestration:**
 
-This design decouples **business logic** (AdServer) from **ML computation** (ML Inference Service). The AdServer decides *which* candidates to score, *how* to rank them (Adjusted_eCPM formula), and *which* to auction. The ML Inference Service simply computes pCTR/pCVR given feature vectors. This matches industry best practices (Google, Meta, Amazon) where serving layers orchestrate and specialized backends compute.
+This decouples business logic (AdServer) from ML computation. AdServer decides which candidates to score and how to rank them; ML Inference Service simply computes pCTR/pCVR. This matches industry best practices where serving layers orchestrate and specialized backends compute.
 
 For details on multi-tower model architecture, training, and feature engineering, see Chapter 5.
 
@@ -393,27 +395,55 @@ The **FeatureStore** provides low-latency access to features required for scorin
 - **Campaign Features:** Historical CTR, conversion rate, spend rate, quality score.
 
 **Technology Choices:**
-- **Online Store:** Redis or DynamoDB for sub-5ms feature lookups.
+- **Online Store:** Redis [2] or DynamoDB for sub-5ms feature lookups.
 - **Offline Store:** Parquet files on S3, BigQuery, or Snowflake for batch feature materialization.
-- **Feature Platforms:** Feast (open-source), Tecton (managed), Hopsworks (enterprise).
+- **Feature Platforms:** Feast [6] (open-source), Tecton (managed), Hopsworks (enterprise).
 
 The FeatureStore ensures consistency between training and serving environments, a critical requirement for ML model performance.
 
 ### 2.4 AdIndex
 
-The **AdIndex** is the queryable representation of all active ad campaigns and their targeting rules. It stores mappings from targeting attributes (keywords, product IDs, category IDs, audience segments) to campaigns, enabling fast candidate retrieval.
+The **AdIndex** executes a 3-stage pipeline (Boolean retrieval �?Semantic ANN �?Lightweight scoring) to return ranked candidates to AdServer. This offloads retrieval and preliminary filtering, enabling evaluation of millions of campaigns before expensive ML inference.
 
-**Index Types:**
-- **Structured Index:** Exact-match lookups for product IDs, category IDs, audience segments. Implemented with hash maps, tries, or bitmap indices.
-- **Unstructured Index:** Full-text search for keywords with tokenization, stemming, synonym expansion. Implemented with Elasticsearch or Apache Solr.
-- **Embedding Index:** Vector similarity search for semantic keyword matching or product recommendation. Implemented with FAISS (Facebook) or ScaNN (Google).
+**3-Stage Pipeline:**
 
-**Implementation Patterns:**
-- **Elasticsearch/Solr:** Production-grade inverted indices supporting both structured filters and unstructured text search. Near-real-time updates (1-5s refresh intervals), distributed sharding.
-- **Custom In-Memory Indices:** Optimized for exact-match lookups (<5ms latency). Often used in combination with Elasticsearch (custom for structured, Elasticsearch for text).
-- **Hybrid Retrieval:** Combine multiple index types (keyword + product + embedding) and merge results.
+1. **Boolean Retrieval:** Inverted index matching on targeting (keywords, product IDs, geo, device) → 100K-1M candidates (2-5ms)
 
-The AdIndex must handle near-real-time updates as advertisers create, pause, or modify campaigns. Sharding strategies partition the index by product catalog segments or keyword namespaces. We explore inverted index design, embedding-based retrieval, and hybrid strategies in Chapter 3.
+2. **Semantic ANN Search:** Embedding-based vector similarity (FAISS [5], ScaNN) merged with Boolean results → 500-1K candidates (3-8ms). Note: it may run in parallel to stage 1.
+
+3. **Lightweight Scoring:** Rank using stored features (historical CTR, conversion rate, ad relevance, landing page quality, budget health) via simple formulas → Top 200-500 candidates (1-2ms)
+
+**Total Latency:** 12-18ms (including 1-3ms overhead)
+
+**Stored Properties for each Ad:**
+
+- **Targeting:** Keywords, product IDs, categories, segments
+- **Embeddings:** Query and product vectors for ANN
+- **Quality Metrics:** Historical CTR, conversions, relevance scores, landing page quality
+- **Metadata:** Bid, campaign_id, advertiser_id, creative_id
+
+Features computed offline (hourly/daily ETL) and materialized during indexing, enabling fast scoring without real-time lookups or ML calls.
+
+**Two Quality Concepts:**
+
+- **Lightweight quality score (AdIndex):** Historical features + simple formulas �?Fast filtering (1-2ms/1K ads), less accurate
+- **Quality Score (AdServer auction):** Fresh ML predictions + multiplicative formula �?Accurate ranking (Chapter 3), expensive (20-30ms with GPU)
+
+**Technology:**
+- **Elasticsearch/OpenSearch:** Inverted index + ANN plugin, near-real-time updates (1-5s), distributed sharding [4]
+- **FAISS/ScaNN:** Vector similarity for ANN search [5]
+- **Custom Scoring:** Painless scripts or plugins for lightweight scoring
+
+**Benefits:**
+- 50-75% reduction in ML inference load
+- Independent scaling based on retrieval workload
+- Read-optimized design with near-real-time write capability
+
+**Updates:**
+- **Real-Time:** Kafka [3] �?Elasticsearch [4] (1-5s latency)
+- **Batch:** Hourly/daily ETL recomputes quality metrics
+
+**Chapter 4 covers implementation details.**
 
 ### 2.5 BudgetSvc (Budget & Pacing Service)
 
@@ -429,7 +459,7 @@ The **BudgetSvc** tracks campaign spending in real time and enforces advertiser-
 - **Event-Driven Pacing:** Adjust targets dynamically for traffic spikes (flash sales, promotional events).
 
 **Technology Stack:**
-- **Counters:** Redis sorted sets or atomic counters for real-time spend tracking.
+- **Counters:** Redis [2] sorted sets or atomic counters for real-time spend tracking.
 - **Pacing Logic:** Python/Go services implementing PID controllers.
 - **Persistence:** Periodic snapshots to PostgreSQL for recovery and auditing.
 
@@ -444,7 +474,7 @@ The **AdSvc** supplies bid properties and campaign metadata required for auction
 
 **Technology Stack:**
 - **Primary Store:** PostgreSQL or MySQL for campaign configuration (the source of truth).
-- **Cache Layer:** Redis for frequently accessed campaigns (top 10% of campaigns serve 80%+ of traffic).
+- **Cache Layer:** Redis [2] for frequently accessed campaigns (top 10% of campaigns serve 80%+ of traffic).
 - **API:** RESTful or gRPC interface for batch fetching (retrieve 20-50 campaigns in a single request).
 
 The AdSvc must support high read throughput (10K-50K QPS) while maintaining consistency with the campaign database. Caching strategies and eventual consistency trade-offs are key design considerations.
@@ -454,13 +484,13 @@ The AdSvc must support high read throughput (10K-50K QPS) while maintaining cons
 The **CreativeSvc** constructs the final ad payload for each winning campaign. It retrieves creative assets (images, titles, descriptions), applies dynamic creative optimization (DCO), and serializes the response.
 
 **Creative Assembly Steps:**
-1. **Asset Retrieval:** Fetch creative metadata from a creative store (Redis cache fronting PostgreSQL or S3).
+1. **Asset Retrieval:** Fetch creative metadata from a creative store (Redis [2] cache fronting PostgreSQL or S3).
 2. **Dynamic Substitution:** Insert real-time data (current price, inventory status, user-specific messaging, promotional badges).
 3. **Format Compliance:** Ensure the ad meets placement requirements (image dimensions, character limits, required fields).
 4. **Response Serialization:** Package the ad slate into JSON or structured format expected by the frontend.
 
 **Technology Stack:**
-- **Cache:** Redis for frequently accessed creative metadata.
+- **Cache:** Redis [2] for frequently accessed creative metadata.
 - **Asset Storage:** S3 or CDN for images, videos, product feeds.
 - **Fallbacks:** Default creatives or dynamic fallback logic for missing assets.
 
@@ -477,7 +507,7 @@ The **ProductSvc** provides product details (title, image, price, inventory) for
 
 **Technology Stack:**
 - **Primary Store:** Product catalog database (PostgreSQL, MongoDB, or specialized e-commerce platforms).
-- **Cache Layer:** Redis or Memcached for frequently viewed products.
+- **Cache Layer:** Redis [2] or Memcached for frequently viewed products.
 - **API:** Batch-optimized RESTful or gRPC interface.
 
 The ProductSvc is shared across ad serving and organic search systems, requiring careful capacity planning to handle combined traffic.
@@ -488,36 +518,36 @@ The ProductSvc is shared across ad serving and organic search systems, requiring
 
 Several architectural principles guide RMN ad serving design:
 
-### 4.1 Latency vs. Accuracy
+### 3.1 Latency vs. Accuracy
 
 Ranking models with more parameters or deeper architectures generally improve ad relevance but increase inference latency. Common strategies to balance this trade-off:
 - **Model Distillation:** Train a smaller "student" model to approximate a larger "teacher" model.
 - **Two-Stage Ranking:** Use a lightweight model for initial scoring (top-k selection) and a heavy model for final re-ranking (top-10).
 - **Feature Pruning:** Remove low-signal features to reduce input size and computation.
 
-### 4.2 Recall vs. Precision
+### 3.2 Recall vs. Precision
 
 Retrieval prioritizes **recall** (not missing relevant ads) because downstream ranking can filter out poor candidates. However, excessively large candidate sets (>2,000) overwhelm the ranking stage. Strategies:
 - **Hard Filters:** Exclude campaigns with low historical CTR or poor quality scores during retrieval.
 - **Approximate Matching:** Use embedding similarity with a tuned threshold to limit candidate set size.
 
-### 4.3 Consistency vs. Availability
+### 3.3 Consistency vs. Availability
 
 Budget enforcement requires consistent state across distributed servers. If a campaign's budget is exhausted, all servers must stop serving it immediately. However, strict consistency (e.g., distributed locks) introduces latency. Pragmatic approaches:
 - **Eventual Consistency:** Accept slight overspend (1-2%) in exchange for low latency.
 - **Periodic Sync:** Budget counters sync every 100ms–1s; pacing logic tolerates stale reads.
 - **Circuit Breakers:** If budget service is unavailable, serve ads at reduced throttle rather than failing entirely.
 
-### 4.4 Statelessness
+### 3.4 Statelessness
 
-All serving components (Ad Server, Ranking, Auction, Creative Assembly) are stateless, relying on external stores (Redis, PostgreSQL, S3) for state. This enables:
+All serving components (Ad Server, Ranking, Auction, Creative Assembly) are stateless, relying on external stores (Redis [2], PostgreSQL, S3) for state. This enables:
 - **Horizontal Scaling:** Add/remove servers dynamically based on load.
 - **Fault Tolerance:** Restart failed servers without data loss.
 - **Simplified Deployment:** Blue/green or canary deployments with minimal coordination.
 
-### 4.5 Observability
+### 3.5 Observability
 
-Production ad serving systems instrument every stage with metrics (latency, error rate, throughput), logs (structured JSON logs to Elasticsearch), and traces (distributed tracing with Jaeger or Datadog). Key metrics:
+Production ad serving systems instrument every stage with metrics (latency, error rate, throughput), logs (structured JSON logs to Elasticsearch [4]), and traces (distributed tracing with Jaeger or Datadog). Key metrics:
 - **Latency Percentiles:** p50, p95, p99 per service.
 - **Error Rates:** 4xx/5xx responses, timeout rates.
 - **Business Metrics:** Fill rate (percentage of requests with ads), eCPM (effective cost per thousand impressions).
@@ -528,46 +558,48 @@ Dashboards (Grafana) and alerts (PagerDuty) enable rapid incident response.
 
 ## 4. Summary and Next Steps
 
-This chapter introduced the architecture of an RMN ad serving system through three lenses: end-to-end request flows, core components, and design principles. We examined two distinct serving patterns—standalone ad placements and search-integrated placements—and how they differ in latency budgets, orchestration, and interleaving logic. We then explored eight core components that power the ad serving path, from orchestration (AdServer) to ML inference (ML Inference Service) to creative assembly (CreativeSvc).
+This chapter introduced the RMN ad serving architecture through end-to-end request flows, core components, and design principles. Two serving patterns (standalone and search-integrated) were examined alongside eight specialized services.
 
-Key takeaways:
-- **Request Flows:** Standalone placements allow ~100ms latency with asynchronous loading, while search-integrated placements require ~60ms to match organic search and include interleaving logic with ProductSvc for unified results.
-- **AdServer as Orchestrator:** The AdServer owns the complete pipeline orchestration—from feature fetching through retrieval, quality score computation, preliminary ranking, ML inference coordination, final ranking, auction execution, and creative assembly. This centralizes business logic while delegating specialized computation to backend services.
-- **ML Inference Service Architecture:** A pure stateless inference backend (TorchServe, TensorFlow Serving, or Triton) that receives feature vectors and returns pCTR/pCVR predictions. Separating ML computation from orchestration enables independent scaling (GPU for inference, CPU for orchestration) and technology flexibility.
-- **Optimized Computation Order:** The architecture computes lightweight quality scores on 1,000 candidates (1-2ms) before expensive ML inference on 250 candidates (20-30ms), reducing latency by 20-40% and GPU costs by 70-80% compared to scoring all candidates.
-- **Auction Mechanism:** The AdServer ranks candidates by adjusted eCPM (bid × pCTR × quality_score), balancing advertiser bids with ML-predicted engagement and quality scores. High-quality ads can outrank higher bids.
-- **FeatureStore Role:** Bridges offline training and online serving, ensuring feature consistency and avoiding train/serve skew—a critical requirement for ML model performance.
-
-The architecture balances competing demands: latency vs. accuracy, recall vs. precision, consistency vs. availability. Separating orchestration (AdServer, CPU) from specialized computation (ML Inference Service, GPU; FeatureStore, Redis) enables independent scaling and optimization. Stateless services, horizontal scaling, caching, and asynchronous logging enable the system to handle 10,000–50,000 QPS sustained, with peaks 2–3× higher during promotional events.
+**Architectural Highlights:**
+- **AdIndex's 3-stage pipeline** reduces millions of campaigns to 200-500 ranked candidates in 12-18ms before expensive ML inference
+- **Separation of concerns:** Orchestration (AdServer, CPU) decoupled from specialized computation (AdIndex retrieval, ML inference on GPU, FeatureStore)
+- **Optimized computation order:** Cheap filtering before expensive ML, reducing inference load 50-75%
+- **Stateless services** enable horizontal scaling to 10K-50K QPS sustained
 
 **Next Chapters:**
 
-- **Chapter 3: Auction Mechanisms and Quality Scoring** — Deep dive into adjusted eCPM formulas (CPC vs CPM), quality score computation (multiplicative formulas, Ad_Relevance, Landing_Page_Quality), platform weight tuning through Bayesian Optimization, and integration with ML predictions.
-
-- **Chapter 4: Retrieval and Candidate Generation** — Inverted index design (Elasticsearch, custom in-memory indices), embedding-based retrieval with FAISS/ScaNN, hybrid retrieval strategies, and algorithms that power sub-10ms candidate selection at scale.
-
-- **Chapter 5: Multi-Tower Scoring Models** — Neural architectures for predicting pCTR/pCVR, separating static user features from dynamic context, dual-use embeddings (retrieval + ranking), multi-task learning, and deployment as stateless inference services.
-
-Each subsequent chapter builds on the architectural foundation established here, diving deep into the algorithms, ML systems, and optimization techniques that power production RMN platforms.
+- **Chapter 3:** Auction mechanisms, Quality Score formula, GSP auction, platform weight tuning
+- **Chapter 4:** AdIndex implementation—inverted indices, ANN search (FAISS/ScaNN), lightweight scoring algorithms  
+- **Chapter 5:** Multi-tower ML models for pCTR/pCVR prediction, embeddings, deployment strategies
 
 ---
 
 ## References and Further Reading
 
-[To be populated with specific sources as content is validated]
+### Industry Engineering Blogs on Ad Serving Architecture
 
-**Ad Serving Architecture:**
-- Google Ads Architecture (high-level overviews from Google Cloud blog posts)
-- Amazon Advertising Engineering Blog (sponsored products architecture insights)
+[1] Sun, C., Yu, N., Lu, H., Wang, L., Pu, Y., Liu, G., Musumeci, G-P., & Bhatia, N. (2024). *Meta Andromeda: Supercharging Advantage+ Automation with the Next-Gen Personalized Ads Retrieval Engine*. Meta Engineering Blog. Retrieved from https://engineering.fb.com/2024/12/02/production-engineering/meta-andromeda-advantage-automation-next-gen-personalized-ads-retrieval-engine/ (Production-scale ads retrieval engine processing three orders of magnitude more candidates than ranking stage under tight latency constraints, with hierarchical indexing and GPU-optimized deep neural networks - relevant to Sections 2.1-2.4 on multi-stage retrieval and latency budgeting)
 
-**Retrieval Systems:**
-- Johnson, J., Douze, M., & Jégou, H. (2019). "Billion-scale similarity search with GPUs." *IEEE Transactions on Big Data*.
-- FAISS documentation: https://github.com/facebookresearch/faiss
+### Technology Documentation
 
-**Feature Stores:**
-- Feast documentation: https://feast.dev/
-- Tecton documentation: https://www.tecton.ai/
+[2] Redis Documentation. (2025). *Redis Documentation*. Retrieved from https://redis.io/docs/ (In-memory data structure store for sub-millisecond caching, mentioned in Sections 2.1, 2.3, 2.5, 2.6, 2.7, 2.8 for feature caching, budget counters, and campaign metadata)
 
-**Model Serving:**
-- TorchServe documentation: https://pytorch.org/serve/
-- TensorFlow Serving documentation: https://www.tensorflow.org/tfx/guide/serving
+[3] Apache Kafka Documentation. (2025). *Apache Kafka Documentation*. Retrieved from https://kafka.apache.org/documentation/ (Distributed event streaming platform for asynchronous logging and real-time data pipelines, mentioned in Sections 2.5 and 2.4)
+
+[4] Elasticsearch Documentation. (2025). *Elasticsearch Guide*. Retrieved from https://www.elastic.co/guide/ (Search and analytics engine with inverted index and ANN capabilities, mentioned in Section 2.4 for AdIndex implementation)
+
+[5] FAISS. (2025). *FAISS: A Library for Efficient Similarity Search*. Facebook Research. Retrieved from https://github.com/facebookresearch/faiss (Vector similarity search library for ANN in Section 2.4)
+
+[6] Feast Documentation. (2025). *Feast: Feature Store for Machine Learning*. Retrieved from https://feast.dev/ (Open-source feature store for online/offline serving, mentioned in Section 2.3)
+
+### Academic Research on Ad Auctions
+
+[7] Edelman, B., Ostrovsky, M., & Schwarz, M. (2007). *Internet Advertising and the Generalized Second-Price Auction: Selling Billions of Dollars Worth of Keywords*. American Economic Review, 97(1), 242-259. Retrieved from https://www.benedelman.org/publications/gsp-060801.pdf (Foundational paper on GSP auction mechanism used in sponsored search, cited in Section 2.1 for auction pricing where winners pay minimum to beat next competitor)
+
+[8] Varian, H. R. (2007). *Position Auctions*. International Journal of Industrial Organization, 25(6), 1163-1178. (Analysis of position auctions and Nash equilibria in sponsored search, providing theoretical foundation for auction mechanisms mentioned in Sections 2.1 and 2.6)
+
+**Note on Citation Practice:** This chapter describes production system architecture based on industry practices. Reference [1] is an engineering blog post from Meta detailing real-world retrieval engine implementation. References [2]-[6] are technology documentation for tools mentioned as implementation examples throughout the chapter text. References [7]-[8] provide theoretical foundations for auction mechanisms (GSP) mentioned in Sections 2.1 and 2.6. While complete end-to-end ad serving system architectures are rarely published due to their proprietary nature, these references cover the key subsystems and algorithms that compose production systems. Academic literature on complete advertising system architecture is limited, as proprietary production systems are rarely published in scholarly venues.
+
+**Related Chapters:** Chapters 3 (Auction Mechanisms), 4 (AdIndex Implementation Details), and 5 (Multi-Tower ML Models) provide algorithmic details for components mentioned in this architecture overview.
+
+
