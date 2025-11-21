@@ -769,7 +769,7 @@ graph TB
 - **Downsampling negatives**: Clicks are rare (CTR ~0.1-3%). Downsample non-clicks by 10-100× to balance training data.
 - **Importance weighting**: During loss calculation, up-weight negative examples by the downsampling factor to correct for sampling bias:
   $$\mathcal{L} = -\frac{1}{N} \sum_{i=1}^{N} w_i \left[ y_i \log(\hat{p}_i) + (1 - y_i) \log(1 - \hat{p}_i) \right]$$
-  where $w_i = 1$ for clicks, $w_i = \text{downsample\_ratio}$ for non-clicks.
+  where $w_i = 1$ for clicks, $w_i = \text{downsample_ratio}$ for non-clicks.
 
 **Feature freshness**:
 - Static user features: Updated daily (batch ETL)
@@ -916,17 +916,17 @@ Raw model outputs often have **calibration drift**: predicted pCTR=0.05 may corr
 
 1. **Isotonic Regression** [10] (most common):
    - Bin validation set predictions into 100-1000 buckets
-   - Fit a piecewise-constant mapping: $\text{calibrated\_pCTR} = f(\text{raw\_pCTR})$ that matches observed CTR in each bucket
+   - Fit a piecewise-constant mapping: $\text{calibrated_pCTR} = f(\text{raw_pCTR})$ that matches observed CTR in each bucket
    - Pro: Non-parametric, flexible
    - Con: Requires large validation set; bins can be unstable
 
 2. **Platt Scaling** [9]:
-   - Fit a logistic regression on top of model logits: $\text{calibrated\_pCTR} = \sigma(a \cdot \text{logit} + b)$
+   - Fit a logistic regression on top of model logits: $\text{calibrated_pCTR} = \sigma(a \cdot \text{logit} + b)$
    - Pro: Simple, two parameters
    - Con: Assumes logistic relationship (may underfit complex calibration errors)
 
 3. **Temperature Scaling** [11]:
-   - Scale logits by a learned temperature $T$: $\text{calibrated\_pCTR} = \sigma(\text{logit} / T)$
+   - Scale logits by a learned temperature $T$: $\text{calibrated_pCTR} = \sigma(\text{logit} / T)$
    - Pro: Single parameter, preserves ranking order
    - Con: Global scaling may not fix local calibration issues
 
@@ -1012,7 +1012,7 @@ The multi-tower model serves two roles in production:
 - **At request time**:
   1. Fetch pre-computed $\vec{E}_{\text{ad}}$ for each candidate (from ad index metadata or separate cache)
   2. Run fusion head + prediction heads: $(E_{\text{user}}, E_{\text{context}}, E_{\text{ad}}) \rightarrow (\text{pCTR}, \text{pCVR})$
-  3. Auction mechanism (Chapter 3) computes eCPM: $\text{eCPM} = \text{bid} \times \text{pCTR} \times \text{quality\_score}$ (or multi-objective: $\text{bid} \times (\alpha \cdot \text{pCTR} + \beta \cdot \text{pCVR})$)
+  3. Auction mechanism (Chapter 3) computes eCPM: $\text{eCPM} = \text{bid} \times \text{pCTR} \times \text{quality_score}$ (or multi-objective: $\text{bid} \times (\alpha \cdot \text{pCTR} + \beta \cdot \text{pCVR})$)
   4. Auction ranks candidates by eCPM → selects Top-10-20 for final display
 
 **Latency budget**: 10-30ms for scoring 200-500 candidates (batched inference on GPU/TPU)
