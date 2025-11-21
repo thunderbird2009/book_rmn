@@ -49,6 +49,11 @@ jobs:
             fi
           done
 
+      - name: Preprocess Math for Kramdown
+        run: |
+          # Convert $...$ to $$...$$ for Kramdown compatibility
+          python3 _scripts/convert_math.py
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 
