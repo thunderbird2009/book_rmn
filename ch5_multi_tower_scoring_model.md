@@ -626,11 +626,11 @@ pCTR        pCVR
     pCTCVR = pCTR × pCVR (multiplication, not a separate head)
 ```
 
-**Key insight**: Model $p(\text{click})$ and $p(\text{conversion} | \text{click})$ separately using two neural network heads, then **multiply their outputs** to get $p(\text{click and conversion})$. This eliminates **sample selection bias** in CVR modeling (traditionally trained only on clicked samples).
+**Key insight**: Model $p(\text{click})$ and $p(\text{conversion} \mid \text{click})$ separately using two neural network heads, then **multiply their outputs** to get $p(\text{click and conversion})$. This eliminates **sample selection bias** in CVR modeling (traditionally trained only on clicked samples).
 
 **Why pCTCVR is needed - The Sample Selection Bias Problem:**
 
-Traditional CVR modeling trains only on **clicked samples** to predict $p(\text{conversion} | \text{click})$. This creates bias because:
+Traditional CVR modeling trains only on **clicked samples** to predict $p(\text{conversion} \mid \text{click})$. This creates bias because:
 - Non-clickers are excluded from training (you don't observe whether they would have converted)
 - The model only learns from users who clicked, which is a biased subset
 
@@ -651,7 +651,7 @@ where:
 - The CVR head has **no direct supervision** - there's no standalone CVR loss
 - Instead, it learns through backpropagation from $\mathcal{L}_ {\text{CTCVR}}$ via the multiplication operation
 - Gradients flow: $\mathcal{L}_ {\text{CTCVR}} \rightarrow \text{pCTCVR} \rightarrow \text{pCVR}$ (CVR head)
-- This forces pCVR to learn $p(\text{conversion} | \text{click})$ correctly across the **entire impression space**, eliminating sample selection bias
+- This forces pCVR to learn $p(\text{conversion} \mid \text{click})$ correctly across the **entire impression space**, eliminating sample selection bias
 
 **Practical benefit**: CVR predictions are more accurate and generalize better than traditional CVR models trained only on clicked samples.
 
