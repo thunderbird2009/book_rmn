@@ -1,4 +1,4 @@
-# Book RMN: Building Retail Media Networks
+# Building Retail Media Networks: Architecture, Algorithms, and Machine Learning
 
 This repository contains selected chapters and code examples from a comprehensive guide on engineering Retail Media Networks (RMNs).
 

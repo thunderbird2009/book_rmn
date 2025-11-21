@@ -1,6 +1,6 @@
 theme: jekyll-theme-slate
-title: Book RMN
-description: Ad Serving Architecture and Models
+title: Building Retail Media Networks
+description: Architecture, Algorithms, and Machine Learning for Ad Systems
 defaults:
   - scope:
       path: ""
