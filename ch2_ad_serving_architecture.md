@@ -134,7 +134,7 @@ sequenceDiagram
         SearchSvc-->>SearchOrchestrator: Top 100 organic product IDs (t=60ms)
     and Sponsored Ads
         SearchOrchestrator->>AdServer: Ad request (query, context)
-        Note over AdServer: Same 3-stage AdIndex pipeline:<br/>Boolean �?Semantic �?Lightweight Scoring<br/>Then: Budget check �?ML Inference �?Auction
+        Note over AdServer: Same 3-stage AdIndex pipeline:<br/>Boolean → Semantic → Lightweight Scoring<br/>Then: Budget check → ML Inference → Auction
         AdServer-->>SearchOrchestrator: 10 sponsored product IDs + ad metadata (t=55ms)
     end
     
@@ -252,7 +252,7 @@ Key responsibilities:
 **Feature Fetching & AdIndex Query:**
 - Fetch user and product embeddings from FeatureStore.
 - Query AdIndex with enriched context (keywords, geo, device, embeddings).
-- **Note:** AdIndex executes its 3-stage pipeline (Boolean �?Semantic �?Lightweight scoring) internally and returns 200-500 ranked candidates (Chapter 4).
+- **Note:** AdIndex executes its 3-stage pipeline (Boolean → Semantic → Lightweight scoring) internally and returns 200-500 ranked candidates (Chapter 4).
 
 **Budget Filtering:**
 - Call BudgetSvc to filter candidates that have exhausted budgets or require pacing.
@@ -403,7 +403,7 @@ The FeatureStore ensures consistency between training and serving environments, 
 
 ### 2.4 AdIndex
 
-The **AdIndex** executes a 3-stage pipeline (Boolean retrieval �?Semantic ANN �?Lightweight scoring) to return ranked candidates to AdServer. This offloads retrieval and preliminary filtering, enabling evaluation of millions of campaigns before expensive ML inference.
+The **AdIndex** executes a 3-stage pipeline (Boolean retrieval → Semantic ANN → Lightweight scoring) to return ranked candidates to AdServer. This offloads retrieval and preliminary filtering, enabling evaluation of millions of campaigns before expensive ML inference.
 
 **3-Stage Pipeline:**
 
@@ -426,8 +426,8 @@ Features computed offline (hourly/daily ETL) and materialized during indexing, e
 
 **Two Quality Concepts:**
 
-- **Lightweight quality score (AdIndex):** Historical features + simple formulas �?Fast filtering (1-2ms/1K ads), less accurate
-- **Quality Score (AdServer auction):** Fresh ML predictions + multiplicative formula �?Accurate ranking (Chapter 3), expensive (20-30ms with GPU)
+- **Lightweight quality score (AdIndex):** Historical features + simple formulas → Fast filtering (1-2ms/1K ads), less accurate
+- **Quality Score (AdServer auction):** Fresh ML predictions + multiplicative formula → Accurate ranking (Chapter 3), expensive (20-30ms with GPU)
 
 **Technology:**
 - **Elasticsearch/OpenSearch:** Inverted index + ANN plugin, near-real-time updates (1-5s), distributed sharding [4]
@@ -440,7 +440,7 @@ Features computed offline (hourly/daily ETL) and materialized during indexing, e
 - Read-optimized design with near-real-time write capability
 
 **Updates:**
-- **Real-Time:** Kafka [3] �?Elasticsearch [4] (1-5s latency)
+- **Real-Time:** Kafka [3] → Elasticsearch [4] (1-5s latency)
 - **Batch:** Hourly/daily ETL recomputes quality metrics
 
 **Chapter 4 covers implementation details.**
