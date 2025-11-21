@@ -1,31 +1,71 @@
-<!-- Medium Zoom for Images and SVGs -->
+<!-- Medium Zoom for Images -->
 <script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script>
 
 <style>
-  .medium-zoom-overlay, .medium-zoom-image--opened {
-    z-index: 9999 !important;
-  }
-  img, .mermaid svg {
+  /* Custom Fullscreen for Mermaid Diagrams */
+  .mermaid {
     cursor: zoom-in;
+    transition: all 0.3s ease;
+    /* Add a subtle border to indicate interactivity */
+    border: 1px solid transparent; 
+  }
+  
+  .mermaid:hover {
+    border: 1px solid #555;
+    background: rgba(255,255,255,0.05);
+    border-radius: 4px;
+  }
+
+  .mermaid.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 999999; /* Very high z-index */
+    background: rgba(45, 45, 45, 0.95); /* Dark background with slight transparency */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    box-sizing: border-box;
+    cursor: zoom-out;
+    overflow: auto; /* Allow scrolling if diagram is huge */
+  }
+
+  .mermaid.fullscreen svg {
+    max-width: 95%;
+    max-height: 95%;
+    /* Reset any fixed sizes to allow scaling */
+    width: auto !important;
+    height: auto !important;
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+    background: white; /* Ensure diagram is readable */
+    padding: 10px;
+    border-radius: 4px;
   }
 </style>
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Attach to standard images
+    // Attach medium-zoom to standard images
     mediumZoom('img', { margin: 24, background: '#2d2d2d' });
-    
-    // Polling to attach to Mermaid SVGs as they appear
-    // This ensures we catch them whenever Mermaid finishes rendering
-    setInterval(() => {
-      const svgs = document.querySelectorAll('.mermaid svg');
-      svgs.forEach(svg => {
-        // Only attach if not already attached (medium-zoom adds this class)
-        if (!svg.classList.contains('medium-zoom-image')) {
-          mediumZoom(svg, { margin: 24, background: '#2d2d2d' });
+
+    // Custom click handler for Mermaid diagrams
+    document.addEventListener('click', (e) => {
+      // Check if clicked element is inside a mermaid div
+      const mermaidDiv = e.target.closest('.mermaid');
+      if (mermaidDiv) {
+        mermaidDiv.classList.toggle('fullscreen');
+        
+        // Prevent scrolling on body when fullscreen
+        if (mermaidDiv.classList.contains('fullscreen')) {
+          document.body.style.overflow = 'hidden';
+        } else {
+          document.body.style.overflow = '';
         }
-      });
-    }, 1000);
+      }
+    });
   });
 </script>
 
