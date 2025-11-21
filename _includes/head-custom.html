@@ -1,6 +1,24 @@
 <!-- Medium Zoom for Images and SVGs -->
 <script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script>
 
+<style>
+  img, .mermaid svg {
+    cursor: zoom-in;
+    transition: transform 0.3s ease;
+  }
+</style>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Apply medium-zoom to standard images immediately
+    mediumZoom(document.querySelectorAll('img'), {
+      margin: 24,
+      background: '#2d2d2d',
+      scrollOffset: 0
+    });
+  });
+</script>
+
 <script type="module">
   import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
   mermaid.initialize({ startOnLoad: false });
@@ -17,17 +35,14 @@
     });
     
     mermaid.run().then(() => {
-      // Apply medium-zoom to Mermaid SVGs
-      mediumZoom(document.querySelectorAll('.mermaid svg'), {
-        margin: 24,
-        background: '#2d2d2d'
-      });
-    });
-
-    // Apply medium-zoom to standard images
-    mediumZoom(document.querySelectorAll('img'), {
-      margin: 24,
-      background: '#2d2d2d'
+      // Apply medium-zoom to Mermaid SVGs after they render
+      setTimeout(() => {
+        mediumZoom(document.querySelectorAll('.mermaid svg'), {
+          margin: 24,
+          background: '#2d2d2d',
+          scrollOffset: 0
+        });
+      }, 500); // Small delay to ensure SVG is fully ready
     });
   });
 </script>
