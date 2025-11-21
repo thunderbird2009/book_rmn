@@ -33,8 +33,16 @@ jobs:
               # Create temp file with front matter
               echo "---" > temp.md
               echo "layout: default" >> temp.md
-              # Generate a title from the filename
-              echo "title: $(basename "$file" .md | sed 's/_/ /g' | sed 's/-/ /g')" >> temp.md
+              
+              # Special handling for README.md to make it the index page
+              if [[ "$(basename "$file")" == "README.md" ]]; then
+                echo "title: Home" >> temp.md
+                echo "permalink: /" >> temp.md
+              else
+                # Generate a title from the filename
+                echo "title: $(basename "$file" .md | sed 's/_/ /g' | sed 's/-/ /g')" >> temp.md
+              fi
+              
               echo "---" >> temp.md
               cat "$file" >> temp.md
               mv temp.md "$file"
