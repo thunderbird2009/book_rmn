@@ -52,7 +52,7 @@ We expand the basic two-tower framework [5] into a **multi-tower architecture** 
 **Model outputs**:
 - **pCTR**: $P(\text{click} \mid \text{user, context, ad})$ — probability user clicks the ad (0 to 1)
 - **pCVR**: $P(\text{conversion} \mid \text{user, context, ad, click})$ — probability user converts given they clicked (0 to 1)
-- **Tower embeddings**: Reusable vector representations ($\vec{E}_{\text{user}}$, $\vec{E}_{\text{context}}$, $\vec{E}_{\text{ad}}$) used for both fast retrieval (Chapter 4's ANN search) and precise scoring
+- **Tower embeddings**: Reusable vector representations (`$\vec{E}_{\text{user}}$`, `$\vec{E}_{\text{context}}$`, `$\vec{E}_{\text{ad}}$`) used for both fast retrieval (Chapter 4's ANN search) and precise scoring
 
 This chapter details the neural architecture that produces these predictions while serving dual purposes: enabling fast candidate retrieval via embeddings (Chapter 4) and providing calibrated probability predictions for auction ranking (Chapter 3).
 
@@ -92,9 +92,9 @@ This chapter details the neural architecture that produces these predictions whi
 
 The full model consists of **four major components**:
 
-1. **Static User Tower**: Encodes slowly-changing user profile features (demographics, historical behavior, long-term interests) into a cached embedding $\vec{E}_{\text{user}}^{\text{static}}$ (128-d).
-2. **Dynamic Context Tower**: Encodes request-time features (search query text, real-time context, session state) into $\vec{E}_{\text{context}}^{\text{dynamic}}$ (128-d).
-3. **Ad Tower**: Encodes ad creative features (title, description, image embeddings, advertiser info, historical performance) into $\vec{E}_{\text{ad}}$ (128-d).
+1. **Static User Tower**: Encodes slowly-changing user profile features (demographics, historical behavior, long-term interests) into a cached embedding `$\vec{E}_{\text{user}}^{\text{static}}$` (128-d).
+2. **Dynamic Context Tower**: Encodes request-time features (search query text, real-time context, session state) into `$\vec{E}_{\text{context}}^{\text{dynamic}}$` (128-d).
+3. **Ad Tower**: Encodes ad creative features (title, description, image embeddings, advertiser info, historical performance) into `$\vec{E}_{\text{ad}}$` (128-d).
 4. **Fusion & Prediction Head**: Combines the three tower outputs through cross-feature interactions and dense layers, then applies task-specific heads to predict CTR, CVR, or multi-task objectives.
 
 **Key architectural principle**: The first three towers produce **reusable embeddings** that serve dual purposes:
@@ -102,7 +102,7 @@ The full model consists of **four major components**:
 ### 1.2 Dual-Purposes: Retrieval + Scoring
 
 **Embedding Layers are used For Retrieval (Chapter 4)**:
-- Semantic retrieval: Combine user + context tower embeddings into query embedding $\vec{Q}$, then use ANN search to find Top-K ads with highest $\vec{Q} \cdot \vec{E}_{\text{ad}}$ dot product
+- Semantic retrieval: Combine user + context tower embeddings into query embedding $\vec{Q}$, then use ANN search to find Top-K ads with highest `$\vec{Q} \cdot \vec{E}_{\text{ad}}$` dot product
 - Lightweight scoring (Chapter 4, Section 3): Combines dot-product similarity with pre-computed features (bid, historical CTR) to narrow candidates
 - Result: 10M ads → 500-1000 candidates (hybrid retrieval) → 200-500 candidates (lightweight scoring) in <15ms total
 
@@ -126,8 +126,8 @@ The model is trained with a **unified loss** that optimizes tower embeddings for
 $$\mathcal{L}_{\text{total}} = \alpha \cdot \mathcal{L}_{\text{scoring}} + \beta \cdot \mathcal{L}_{\text{retrieval}} \tag{5.1}$$
 
 Where:
-- $\mathcal{L}_{\text{scoring}}$: BCE loss on CTR/CVR predictions using full model (towers + fusion + heads)
-- $\mathcal{L}_{\text{retrieval}}$: Contrastive loss on dot-product similarity (ensures towers learn embedding alignment for semantic retrieval; note: Boolean-targeting criteria are not learned but specified by advertisers)
+- `$\mathcal{L}_{\text{scoring}}$`: BCE loss on CTR/CVR predictions using full model (towers + fusion + heads)
+- `$\mathcal{L}_{\text{retrieval}}$`: Contrastive loss on dot-product similarity (ensures towers learn embedding alignment for semantic retrieval; note: Boolean-targeting criteria are not learned but specified by advertisers)
 
 **Retrieval loss** (optional but recommended):
 $$\mathcal{L}_{\text{retrieval}} = -\log \frac{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}})}{\exp(\vec{Q} \cdot \vec{E}_{\text{ad}}^{\text{clicked}}) + \sum_{j} \exp(\vec{Q} \cdot \vec{E}_{\text{ad}_j}^{\text{negative}})} \tag{5.2}$$
@@ -462,7 +462,7 @@ Output: E_context_dynamic [dim=128]
 **Latency optimization**:
 - Lightweight Transformer (2-layer, 128-d hidden) for query encoding: 3-5ms
 - Micro-batching: Accumulate 5-10 concurrent requests → batch inference → split results
-- Session-level caching: Cache $\vec{E}_{\text{context}}$ for 30-60s if query unchanged (for pagination)
+- Session-level caching: Cache `$\vec{E}_{\text{context}}$` for 30-60s if query unchanged (for pagination)
 
 ---
 
@@ -548,12 +548,12 @@ Task-specific heads (see below)
 ```
 
 **How this connects to retrieval**:
-- **During retrieval**: Compute query embedding $\vec{Q}$ by combining user + context (e.g., $\vec{Q} = \vec{E}_{\text{user}} + \vec{E}_{\text{context}}$ or concatenation), then use $\vec{Q} \cdot \vec{E}_{\text{ad}}$ for ANN search
+- **During retrieval**: Compute query embedding $\vec{Q}$ by combining user + context (e.g., `$\vec{Q} = \vec{E}_{\text{user}} + \vec{E}_{\text{context}}$` or concatenation), then use `$\vec{Q} \cdot \vec{E}_{\text{ad}}$` for ANN search
 - **During scoring**: The fusion layer computes individual dot products (user·ad, context·ad) which are components of the full query·ad similarity
-- **Training insight**: Since $\vec{Q} \cdot \vec{E}_{\text{ad}} = (\vec{E}_{\text{user}} + \vec{E}_{\text{context}}) \cdot \vec{E}_{\text{ad}} = \vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}} + \vec{E}_{\text{context}} \cdot \vec{E}_{\text{ad}}$, the model learns both components
+- **Training insight**: Since `$\vec{Q} \cdot \vec{E}_{\text{ad}} = (\vec{E}_{\text{user}} + \vec{E}_{\text{context}}) \cdot \vec{E}_{\text{ad}} = \vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}} + \vec{E}_{\text{context}} \cdot \vec{E}_{\text{ad}}$`, the model learns both components
 - **Result**: By including user·ad and context·ad dot products as explicit features in the fusion layer, the model learns to make these dot products predictive of clicks. This naturally optimizes the towers for retrieval (where we use the sum/combination of these dot products).
 
-**Why cross-interactions matter**: The dot products $\vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}}$ and $\vec{E}_{\text{context}} \cdot \vec{E}_{\text{ad}}$ explicitly measure alignment in the shared embedding space. This is the same similarity score used during ANN retrieval, so feeding it to the scoring head creates a **unified retrieval-scoring framework** where the MLP learns to refine the raw similarity scores with additional context.
+**Why cross-interactions matter**: The dot products `$\vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}}$` and `$\vec{E}_{\text{context}} \cdot \vec{E}_{\text{ad}}$` explicitly measure alignment in the shared embedding space. This is the same similarity score used during ANN retrieval, so feeding it to the scoring head creates a **unified retrieval-scoring framework** where the MLP learns to refine the raw similarity scores with additional context.
 
 ---
 
@@ -574,7 +574,7 @@ Sigmoid → pCTR ∈ [0, 1]
 **Loss function**: Binary Cross-Entropy (BCE) with optional calibration:
 $$\mathcal{L}_{\text{CTR}} = -\frac{1}{N} \sum_{i=1}^{N} \left[ y_i \log(\hat{p}_i) + (1 - y_i) \log(1 - \hat{p}_i) \right] \tag{5.3}$$
 
-where $y_i \in \{0, 1\}$ is the click label and $\hat{p}_i$ is the predicted CTR.
+where `$y_i \in \{0, 1\}$` is the click label and `$\hat{p}_i$` is the predicted CTR.
 
 **Calibration**: Post-training, apply isotonic regression [10] or Platt scaling [9] to map raw model outputs to calibrated probabilities that match observed click rates. This ensures pCTR predictions are accurate for auction eCPM calculations.
 
@@ -643,14 +643,14 @@ ESMM solves this by introducing **pCTCVR** = $p(\text{click AND conversion})$ as
 $$\mathcal{L}_{\text{ESMM}} = \mathcal{L}_{\text{CTR}} + \mathcal{L}_{\text{CTCVR}} \tag{5.5}$$
 
 where:
-- $\mathcal{L}_{\text{CTR}}$: BCE (Binary Cross-Entropy) loss on all impressions (clicked=1, not clicked=0)
-- $\mathcal{L}_{\text{CTCVR}}$: BCE loss on all impressions (converted=1, otherwise=0)
+- `$\mathcal{L}_{\text{CTR}}$`: BCE (Binary Cross-Entropy) loss on all impressions (clicked=1, not clicked=0)
+- `$\mathcal{L}_{\text{CTCVR}}$`: BCE loss on all impressions (converted=1, otherwise=0)
   - Note: pCTCVR is computed as pCTR × pCVR, then BCE loss is applied to this product
 
 **How the constraint works:**
 - The CVR head has **no direct supervision** - there's no standalone CVR loss
-- Instead, it learns through backpropagation from $\mathcal{L}_{\text{CTCVR}}$ via the multiplication operation
-- Gradients flow: $\mathcal{L}_{\text{CTCVR}} \rightarrow \text{pCTCVR} \rightarrow \text{pCVR}$ (CVR head)
+- Instead, it learns through backpropagation from `$\mathcal{L}_{\text{CTCVR}}$` via the multiplication operation
+- Gradients flow: `$\mathcal{L}_{\text{CTCVR}} \rightarrow \text{pCTCVR} \rightarrow \text{pCVR}$` (CVR head)
 - This forces pCVR to learn $p(\text{conversion} | \text{click})$ correctly across the **entire impression space**, eliminating sample selection bias
 
 **Practical benefit**: CVR predictions are more accurate and generalize better than traditional CVR models trained only on clicked samples.
@@ -769,7 +769,7 @@ graph TB
 - **Downsampling negatives**: Clicks are rare (CTR ~0.1-3%). Downsample non-clicks by 10-100× to balance training data.
 - **Importance weighting**: During loss calculation, up-weight negative examples by the downsampling factor to correct for sampling bias:
   $$\mathcal{L} = -\frac{1}{N} \sum_{i=1}^{N} w_i \left[ y_i \log(\hat{p}_i) + (1 - y_i) \log(1 - \hat{p}_i) \right]$$
-  where $w_i = 1$ for clicks, $w_i = \text{downsample\_ratio}$ for non-clicks.
+  where `$w_i = 1$` for clicks, `$w_i = \text{downsample\_ratio}$` for non-clicks.
 
 **Feature freshness**:
 - Static user features: Updated daily (batch ETL)
@@ -916,17 +916,17 @@ Raw model outputs often have **calibration drift**: predicted pCTR=0.05 may corr
 
 1. **Isotonic Regression** [10] (most common):
    - Bin validation set predictions into 100-1000 buckets
-   - Fit a piecewise-constant mapping: $\text{calibrated\_pCTR} = f(\text{raw\_pCTR})$ that matches observed CTR in each bucket
+   - Fit a piecewise-constant mapping: `$\text{calibrated\_pCTR} = f(\text{raw\_pCTR})$` that matches observed CTR in each bucket
    - Pro: Non-parametric, flexible
    - Con: Requires large validation set; bins can be unstable
 
 2. **Platt Scaling** [9]:
-   - Fit a logistic regression on top of model logits: $\text{calibrated\_pCTR} = \sigma(a \cdot \text{logit} + b)$
+   - Fit a logistic regression on top of model logits: `$\text{calibrated\_pCTR} = \sigma(a \cdot \text{logit} + b)$`
    - Pro: Simple, two parameters
    - Con: Assumes logistic relationship (may underfit complex calibration errors)
 
 3. **Temperature Scaling** [11]:
-   - Scale logits by a learned temperature $T$: $\text{calibrated\_pCTR} = \sigma(\text{logit} / T)$
+   - Scale logits by a learned temperature $T$: `$\text{calibrated\_pCTR} = \sigma(\text{logit} / T)$`
    - Pro: Single parameter, preserves ranking order
    - Con: Global scaling may not fix local calibration issues
 
@@ -995,12 +995,12 @@ The multi-tower model serves two roles in production:
 
 ### 6.1 Retrieval Phase (ANN Search)
 
-- **Pre-compute** $\vec{E}_{\text{ad}}$ for all ads → store in ANN index (FAISS [3] or ScaNN)
+- **Pre-compute** `$\vec{E}_{\text{ad}}$` for all ads → store in ANN index (FAISS [3] or ScaNN)
 - **At request time**:
-  1. Fetch $\vec{E}_{\text{user}}^{\text{static}}$ from cache (Redis)
-  2. Compute $\vec{E}_{\text{context}}^{\text{dynamic}}$ online (Transformer encoder)
-  3. Fuse: $\vec{Q} = \text{FusionLayer}(\vec{E}_{\text{user}}, \vec{E}_{\text{context}})$ (or simple concatenation for fast retrieval)
-  4. ANN search: Find Top-K ads with highest $\vec{Q} \cdot \vec{E}_{\text{ad}}$ similarity → 500-1000 candidates
+  1. Fetch `$\vec{E}_{\text{user}}^{\text{static}}$` from cache (Redis)
+  2. Compute `$\vec{E}_{\text{context}}^{\text{dynamic}}$` online (Transformer encoder)
+  3. Fuse: `$\vec{Q} = \text{FusionLayer}(\vec{E}_{\text{user}}, \vec{E}_{\text{context}})$` (or simple concatenation for fast retrieval)
+  4. ANN search: Find Top-K ads with highest `$\vec{Q} \cdot \vec{E}_{\text{ad}}$` similarity → 500-1000 candidates
 
 **Latency budget**: 5-15ms for full retrieval (cache lookup + dynamic tower + ANN search)
 
@@ -1010,9 +1010,9 @@ The multi-tower model serves two roles in production:
 
 - **Input**: 500-1000 candidates from retrieval + all three tower embeddings
 - **At request time**:
-  1. Fetch pre-computed $\vec{E}_{\text{ad}}$ for each candidate (from ad index metadata or separate cache)
-  2. Run fusion head + prediction heads: $(E_{\text{user}}, E_{\text{context}}, E_{\text{ad}}) \rightarrow (\text{pCTR}, \text{pCVR})$
-  3. Auction mechanism (Chapter 3) computes eCPM: $\text{eCPM} = \text{bid} \times \text{pCTR} \times \text{quality\_score}$ (or multi-objective: $\text{bid} \times (\alpha \cdot \text{pCTR} + \beta \cdot \text{pCVR})$)
+  1. Fetch pre-computed `$\vec{E}_{\text{ad}}$` for each candidate (from ad index metadata or separate cache)
+  2. Run fusion head + prediction heads: `$(E_{\text{user}}, E_{\text{context}}, E_{\text{ad}}) \rightarrow (\text{pCTR}, \text{pCVR})$`
+  3. Auction mechanism (Chapter 3) computes eCPM: `$\text{eCPM} = \text{bid} \times \text{pCTR} \times \text{quality\_score}$` (or multi-objective: $\text{bid} \times (\alpha \cdot \text{pCTR} + \beta \cdot \text{pCVR})$)
   4. Auction ranks candidates by eCPM → selects Top-10-20 for final display
 
 **Latency budget**: 10-30ms for scoring 200-500 candidates (batched inference on GPU/TPU)
@@ -1037,13 +1037,13 @@ The multi-tower architecture is **not just a modeling choice**—it's driven by 
    - Factorizing into separate embeddings (user, ad) enables **ANN search** to prune 99.99% of pairs in <10ms
 
 3. **Unified Retrieval-Ranking**:
-   - Retrieval uses dot product: $\vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}}$ (fast, parallelizable)
+   - Retrieval uses dot product: `$\vec{E}_{\text{user}} \cdot \vec{E}_{\text{ad}}$` (fast, parallelizable)
    - Ranking uses same embeddings + fusion head (accurate, expressive)
    - **Consistency**: Top-K from retrieval are relevant to the ranking model since both share the same embedding space
 
 4. **Incremental Learning**:
-   - New user signs up → compute $\vec{E}_{\text{user}}$ once, cache, immediately served
-   - New ad uploaded → encode $\vec{E}_{\text{ad}}$, insert into ANN index within minutes
+   - New user signs up → compute `$\vec{E}_{\text{user}}$` once, cache, immediately served
+   - New ad uploaded → encode `$\vec{E}_{\text{ad}}$`, insert into ANN index within minutes
    - No need to retrain the full model for every new entity
 
 This architecture is the **backbone of modern recommendation and ad systems** at Google, Meta, Pinterest, Airbnb [14], and others. The key innovation is recognizing that **embeddings are the universal interface** between retrieval, ranking, and downstream systems.

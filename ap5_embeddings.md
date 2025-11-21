@@ -109,7 +109,7 @@ Embeddings are **learned parameters** optimized during model training through gr
 
 **Initialization strategies:**
 - **Uniform distribution**: $\text{Uniform}(-\sqrt{1/d}, \sqrt{1/d})$ where $d$ is embedding dimension (PyTorch default)
-- **Xavier/Glorot**: $\text{Uniform}(-\sqrt{6/(d_{\text{in}} + d_{\text{out}})}, \sqrt{6/(d_{\text{in}} + d_{\text{out}})})$ for balanced gradient flow
+- **Xavier/Glorot**: `$\text{Uniform}(-\sqrt{6/(d_{\text{in}} + d_{\text{out}})}, \sqrt{6/(d_{\text{in}} + d_{\text{out}})})$` for balanced gradient flow
 - **He initialization**: Used for ReLU networks, less common for embeddings
 - **Impact**: Proper initialization prevents vanishing/exploding gradients; uniform works well in practice for embeddings
 
@@ -159,7 +159,7 @@ Text features—search queries, ad titles, product descriptions—are ubiquitous
 3. **Variable length**: Queries range from 2 words ("NYC hotels") to 20+ words ("best pet-friendly luxury beachfront resorts in Miami for Christmas week"). Output must be fixed-size for downstream neural layers.
 4. **Latency constraints**: Text encoding must complete in 2-5ms to meet Chapter 2's P99 <10ms total latency budget for scoring.
 
-**Encoding goal**: Transform variable-length text $[w_1, w_2, ..., w_N]$ into fixed-size vector $\vec{E}_{\text{query}} \in \mathbb{R}^d$ (typically $d=128$ or $d=256$).
+**Encoding goal**: Transform variable-length text `$[w_1, w_2, ..., w_N]$` into fixed-size vector `$\vec{E}_{\text{query}} \in \mathbb{R}^d$` (typically $d=128$ or $d=256$).
 
 ### 2.2 Three-Stage Text Encoding Pipeline
 
@@ -174,7 +174,7 @@ The complete pipeline involves three distinct stages:
 2. **Token Embedding Lookup**: Map each token to dense vector via embedding table (Section 1.2)
    - Vocabulary size: 10K-50K tokens for ad-specific vocabulary
    - Embedding dimension: 64-128d per token
-   - Example: `"hotel"` → Token ID 4567 → $\mathbf{E}_{\text{token}}[4567] \in \mathbb{R}^{128}$
+   - Example: `"hotel"` → Token ID 4567 → `$\mathbf{E}_{\text{token}}[4567] \in \mathbb{R}^{128}$`
 
 **Stage 2: Sequential Encoder (Transformer)**
 
@@ -182,15 +182,15 @@ Process the sequence of token embeddings to create **contextualized representati
 
 - **Architecture**: Multi-head self-attention (Transformer) is the modern standard, replacing older RNN/LSTM approaches
 - **Mechanism**: Self-attention computes relationships between all token pairs, allowing "hotel" to attend to "family", "best", and "Orlando" simultaneously
-- **Output**: Sequence of contextualized vectors $[\vec{h}_1, \vec{h}_2, ..., \vec{h}_N]$ where each $\vec{h}_i$ represents token $i$ in the context of the full query
+- **Output**: Sequence of contextualized vectors `$[\vec{h}_1, \vec{h}_2, ..., \vec{h}_N]$` where each `$\vec{h}_i$` represents token $i$ in the context of the full query
 
 **Stage 3: Pooling → Fixed-Size Output**
 
-Aggregate the sequence of $N$ contextualized vectors into single vector $\vec{E}_{\text{query}}$.
+Aggregate the sequence of $N$ contextualized vectors into single vector `$\vec{E}_{\text{query}}$`.
 
 **Common strategies:**
-- **Average pooling**: $\vec{E}_{\text{query}} = \frac{1}{N} \sum_{i=1}^{N} \vec{h}_i$ (most common, robust)
-- **Max pooling**: $\vec{E}_{\text{query}} = \max(\vec{h}_1, \vec{h}_2, ..., \vec{h}_N)$ (element-wise max)
+- **Average pooling**: `$\vec{E}_{\text{query}} = \frac{1}{N} \sum_{i=1}^{N} \vec{h}_i$` (most common, robust)
+- **Max pooling**: `$\vec{E}_{\text{query}} = \max(\vec{h}_1, \vec{h}_2, ..., \vec{h}_N)$` (element-wise max)
 - **CLS token**: Use output of special classification token prepended to input (BERT approach)
 
 ### 2.3 Positional Embeddings
@@ -208,9 +208,9 @@ $$\vec{V}_{\text{input}}^{(i)} = \vec{E}_{\text{token}}^{(i)} + \vec{E}_{\text{p
 - **Concatenation** ($[\mathbb{R}^{128} \parallel \mathbb{R}^{128}] \rightarrow \mathbb{R}^{256}$): Used when features are independent and require separate transformations (see Section 3.2 for behavioral sequences)
 
 Where:
-- $\vec{E}_{\text{token}}^{(i)}$: Token embedding for the $i$-th word (semantic meaning)
-- $\vec{E}_{\text{pos}}^{(i)}$: Positional embedding for position $i$ (order information)
-- $\vec{V}_{\text{input}}^{(i)}$: Final input vector combining both
+- `$\vec{E}_{\text{token}}^{(i)}$`: Token embedding for the $i$-th word (semantic meaning)
+- `$\vec{E}_{\text{pos}}^{(i)}$`: Positional embedding for position $i$ (order information)
+- `$\vec{V}_{\text{input}}^{(i)}$`: Final input vector combining both
 
 **Result**: Token "Seattle" at position 1 produces a different input vector than "Seattle" at position 4, enabling the model to learn order-dependent patterns.
 
@@ -248,7 +248,7 @@ Modern models like BERT [2] use **learned positional embeddings**—trainable pa
 **Architecture**: Maintain a position embedding table (similar to token embedding table):
 - Position vocabulary: 0 to MAX_SEQ_LEN (e.g., 512 positions)
 - Embedding dimension: Same as token embedding dimension (e.g., 128d)
-- Lookup: Position $i$ → $\mathbf{E}_{\text{pos}}[i]$
+- Lookup: Position $i$ → `$\mathbf{E}_{\text{pos}}[i]$`
 
 **Advantages**:
 - Model learns task-specific positional patterns most useful for CTR/CVR prediction
@@ -275,11 +275,11 @@ $$\text{RoPE}(\vec{q}_i, i) = \vec{q}_i \cdot e^{i\theta_j m}, \quad \theta_j = 
 
 | Position | Token | Token ID | Token Embedding ($\mathbb{R}^{128}$) |
 |:--------:|:-----:|:--------:|:------------------------------------:|
-| 1 | best | 1523 | $\vec{E}_{\text{token}}[1523]$ |
-| 2 | family | 4201 | $\vec{E}_{\text{token}}[4201]$ |
-| 3 | hotel | 5678 | $\vec{E}_{\text{token}}[5678]$ |
-| 4 | in | 89 | $\vec{E}_{\text{token}}[89]$ |
-| 5 | Orlando | 9432 | $\vec{E}_{\text{token}}[9432]$ |
+| 1 | best | 1523 | `$\vec{E}_{\text{token}}[1523]$` |
+| 2 | family | 4201 | `$\vec{E}_{\text{token}}[4201]$` |
+| 3 | hotel | 5678 | `$\vec{E}_{\text{token}}[5678]$` |
+| 4 | in | 89 | `$\vec{E}_{\text{token}}[89]$` |
+| 5 | Orlando | 9432 | `$\vec{E}_{\text{token}}[9432]$` |
 
 **Step 2: Add Positional Embeddings**
 
@@ -294,14 +294,14 @@ Example for position 3 (token "hotel"):
 
 **Step 3: Transformer Encoder Processing**
 
-Feed sequence $[\vec{V}_{\text{input}}^{(1)}, ..., \vec{V}_{\text{input}}^{(5)}]$ through multi-head self-attention layers:
+Feed sequence `$[\vec{V}_{\text{input}}^{(1)}, ..., \vec{V}_{\text{input}}^{(5)}]$` through multi-head self-attention layers:
 
 1. **Self-Attention**: Compute attention scores between all token pairs
    - "hotel" attends strongly to "family", "best", "Orlando" (high attention weights)
    - "hotel" attends weakly to "in" (low attention weight)
 
 2. **Contextualization**: Generate contextualized representations
-   - $\vec{h}_3^{\text{hotel}}$ now encodes "hotel" in the context of "family", "best", and "Orlando"—capturing the concept of "high-quality family accommodation in Orlando"
+   - `$\vec{h}_3^{\text{hotel}}$` now encodes "hotel" in the context of "family", "best", and "Orlando"—capturing the concept of "high-quality family accommodation in Orlando"
 
 3. **Multiple Layers**: Stack 4-12 Transformer layers for deeper contextualization
 
@@ -311,7 +311,7 @@ Apply average pooling over all contextualized token vectors:
 
 $$\vec{E}_{\text{query}} = \frac{1}{5} \sum_{i=1}^{5} \vec{h}_i$$
 
-**Output**: $\vec{E}_{\text{query}} \in \mathbb{R}^{128}$ — a single dense vector representing the entire query, ready for concatenation with other features in Chapter 5's Dynamic Context Tower.
+**Output**: `$\vec{E}_{\text{query}} \in \mathbb{R}^{128}$` — a single dense vector representing the entire query, ready for concatenation with other features in Chapter 5's Dynamic Context Tower.
 
 ### 2.5 Production Considerations and Optimizations
 
@@ -420,7 +420,7 @@ A user's recent action sequence forms a **temporal event stream** captured durin
 3. **High cardinality**: Item IDs can number in millions (vs. 30K vocabulary for text)
 4. **Sparse interactions**: Not all features present for all actions (e.g., Item ID only present for Click/View)
 
-**Encoding goal**: Transform variable-length sequence into fixed-size vector $\vec{E}_{\text{behavior}} \in \mathbb{R}^d$ (typically $d=256$-$512$) capturing recent user intent.
+**Encoding goal**: Transform variable-length sequence into fixed-size vector `$\vec{E}_{\text{behavior}} \in \mathbb{R}^d$` (typically $d=256$-$512$) capturing recent user intent.
 
 ### 3.2 Tokenization and Vocabulary for Actions
 
@@ -456,10 +456,10 @@ Each action requires embeddings for multiple feature types, combined with positi
 
 **Embedding components for action $i$**:
 
-1. **Action embedding**: $\vec{E}_{\text{action}}^{(i)} \in \mathbb{R}^{32}$ — encodes action type
-2. **Item embedding**: $\vec{E}_{\text{item}}^{(i)} \in \mathbb{R}^{64}$ — encodes item ID (if present)
-3. **Context embedding**: $\vec{E}_{\text{context}}^{(i)} \in \mathbb{R}^{32}$ — encodes contextual features
-4. **Positional embedding**: $\vec{E}_{\text{pos}}^{(i)} \in \mathbb{R}^{32}$ — encodes sequence position
+1. **Action embedding**: `$\vec{E}_{\text{action}}^{(i)} \in \mathbb{R}^{32}$` — encodes action type
+2. **Item embedding**: `$\vec{E}_{\text{item}}^{(i)} \in \mathbb{R}^{64}$` — encodes item ID (if present)
+3. **Context embedding**: `$\vec{E}_{\text{context}}^{(i)} \in \mathbb{R}^{32}$` — encodes contextual features
+4. **Positional embedding**: `$\vec{E}_{\text{pos}}^{(i)} \in \mathbb{R}^{32}$` — encodes sequence position
 5. **Temporal embedding**: $T^{(i)} \in \mathbb{R}$ — encodes recency via time-decay (Section 3.4)
 
 **Fusion strategies**:
@@ -471,7 +471,7 @@ $$\vec{V}_{\text{action}}^{(i)} = [\vec{E}_{\text{action}}^{(i)} \parallel \vec{
 $$\vec{V}_{\text{action}}^{(i)} = \vec{E}_{\text{action}}^{(i)} + \vec{E}_{\text{item}}^{(i)} + \vec{E}_{\text{context}}^{(i)} + \vec{E}_{\text{pos}}^{(i)} \in \mathbb{R}^{64}$$
 (Requires all embeddings to have same dimension)
 
-The sequence of action vectors $[\vec{V}_{\text{action}}^{(1)}, ..., \vec{V}_{\text{action}}^{(L)}]$ is then processed by a sequential model (Section 3.5).
+The sequence of action vectors `$[\vec{V}_{\text{action}}^{(1)}, ..., \vec{V}_{\text{action}}^{(L)}]$` is then processed by a sequential model (Section 3.5).
 
 ### 3.4 Temporal Encoding with Exponential Decay
 
@@ -504,9 +504,9 @@ The most recent action (5s ago) has $10\times$ the weight of the oldest action (
 
 | Strategy | Approach | When to Use | Complexity |
 |:--------:|:--------:|:-----------:|:----------:|
-| **Attention Weighting** (most common) | Multiply attention scores $\alpha^{(i)}$ by temporal weights: $\tilde{\alpha}^{(i)} = \alpha^{(i)} \cdot w^{(i)}$; weighted sum: $\vec{E}_{\text{behavior}} = \sum_{i} \tilde{\alpha}^{(i)} \vec{V}_{\text{action}}^{(i)}$ | With DIN or Transformer models | Medium |
-| **Direct Scaling** | Scale action vectors before sequence processing: $\tilde{\vec{V}}_{\text{action}}^{(i)} = w^{(i)} \cdot \vec{V}_{\text{action}}^{(i)}$ | With RNN/GRU/Transformer, parameter-efficient | Low |
-| **Learned Temporal Embedding** | Discretize $\Delta t$ into buckets (0-10s, 10-30s, etc.); learn embedding $\vec{E}_{\text{time}}^{(i)}$; concatenate: $\vec{V}_{\text{action}}^{(i)} = [\vec{E}_{\text{action}}^{(i)} \parallel ... \parallel \vec{E}_{\text{time}}^{(i)}]$ | When model should learn decay pattern from data | High |
+| **Attention Weighting** (most common) | Multiply attention scores $\alpha^{(i)}$ by temporal weights: $\tilde{\alpha}^{(i)} = \alpha^{(i)} \cdot w^{(i)}$; weighted sum: `$\vec{E}_{\text{behavior}} = \sum_{i} \tilde{\alpha}^{(i)} \vec{V}_{\text{action}}^{(i)}$` | With DIN or Transformer models | Medium |
+| **Direct Scaling** | Scale action vectors before sequence processing: `$\tilde{\vec{V}}_{\text{action}}^{(i)} = w^{(i)} \cdot \vec{V}_{\text{action}}^{(i)}$` | With RNN/GRU/Transformer, parameter-efficient | Low |
+| **Learned Temporal Embedding** | Discretize $\Delta t$ into buckets (0-10s, 10-30s, etc.); learn embedding `$\vec{E}_{\text{time}}^{(i)}$`; concatenate: `$\vec{V}_{\text{action}}^{(i)} = [\vec{E}_{\text{action}}^{(i)} \parallel ... \parallel \vec{E}_{\text{time}}^{(i)}]$` | When model should learn decay pattern from data | High |
 
 #### 3.4.3 Production Considerations
 
@@ -535,11 +535,11 @@ The sequence of (possibly temporally-weighted) action vectors is processed to pr
 | **Mean/Max Pooling** | Element-wise aggregation | <1ms | Extreme latency constraints |
 
 **Deep Interest Network (DIN)** is most common for RMN:
-1. Compute attention score between each historical action $i$ and current candidate ad $\vec{E}_{\text{ad}}$:
+1. Compute attention score between each historical action $i$ and current candidate ad `$\vec{E}_{\text{ad}}$`:
    $$\alpha^{(i)} = \text{softmax}(\vec{W}_{\text{attn}} \cdot [\vec{V}_{\text{action}}^{(i)} \parallel \vec{E}_{\text{ad}} \parallel \vec{V}_{\text{action}}^{(i)} \odot \vec{E}_{\text{ad}}])$$
-2. Aggregate: $\vec{E}_{\text{behavior}} = \sum_{i=1}^{L} \alpha^{(i)} \vec{V}_{\text{action}}^{(i)}$
+2. Aggregate: `$\vec{E}_{\text{behavior}} = \sum_{i=1}^{L} \alpha^{(i)} \vec{V}_{\text{action}}^{(i)}$`
 
-**Output**: Fixed-size behavioral embedding $\vec{E}_{\text{behavior}} \in \mathbb{R}^{256}$ capturing user intent relevant to current ad candidate.
+**Output**: Fixed-size behavioral embedding `$\vec{E}_{\text{behavior}} \in \mathbb{R}^{256}$` capturing user intent relevant to current ad candidate.
 
 ### 3.6 Production Implementation
 
@@ -663,7 +663,7 @@ class BehavioralSequenceEncoder(nn.Module):
 - Real-time stream processing maintains rolling window of last 50 actions per user
 - Feature store caches tokenized sequences (action_ids, item_ids, context_ids, time_deltas)
 - At inference time, retrieve sequence + current timestamp, compute time_deltas on-the-fly
-- Model outputs behavioral embedding $\vec{E}_{\text{behavior}}$ for multi-tower scoring (Chapter 5)
+- Model outputs behavioral embedding `$\vec{E}_{\text{behavior}}$` for multi-tower scoring (Chapter 5)
 
 ---
 
@@ -678,9 +678,9 @@ This appendix detailed three foundational embedding techniques for sequential fe
 **Section 3: Behavioral Actions** addressed multi-dimensional action sequences with temporal decay—concatenating action/item/context/positional embeddings, applying exponential time-decay weighting, and processing via DIN attention. Code Listing A5.2 showed complete encoder achieving 4-5ms latency for 50-action sequences.
 
 **Integration with Chapter 5**: These embedding architectures serve as input towers to the multi-tower scoring model:
-- Query encoder $\vec{E}_{\text{query}}$ feeds the Dynamic Context Tower
-- Behavioral encoder $\vec{E}_{\text{behavior}}$ feeds the Dynamic Context Tower (combined with query)
-- Final scoring combines tower outputs: $\text{score} = f(\vec{E}_{\text{user}}, \vec{E}_{\text{context}}, \vec{E}_{\text{ad}})$
+- Query encoder `$\vec{E}_{\text{query}}$` feeds the Dynamic Context Tower
+- Behavioral encoder `$\vec{E}_{\text{behavior}}$` feeds the Dynamic Context Tower (combined with query)
+- Final scoring combines tower outputs: `$\text{score} = f(\vec{E}_{\text{user}}, \vec{E}_{\text{context}}, \vec{E}_{\text{ad}})$`
 
 **Forward connections**:
 - **Chapter 6 (Budget Pacing)**: Embeddings power real-time bid adjustment
