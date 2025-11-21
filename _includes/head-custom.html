@@ -2,16 +2,20 @@
 <script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script>
 
 <style>
+  /* Ensure the zoom overlay is on top of everything */
+  .medium-zoom-overlay, .medium-zoom-image--opened {
+    z-index: 9999 !important;
+  }
+  
   img, .mermaid svg {
     cursor: zoom-in;
-    transition: transform 0.3s ease;
   }
 </style>
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
-    // Apply medium-zoom to standard images immediately
-    mediumZoom(document.querySelectorAll('img'), {
+    // Attach to standard images immediately
+    mediumZoom('img', {
       margin: 24,
       background: '#2d2d2d',
       scrollOffset: 0
@@ -24,7 +28,6 @@
   mermaid.initialize({ startOnLoad: false });
 
   document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Mermaid
     const mermaidBlocks = document.querySelectorAll('pre code.language-mermaid');
     mermaidBlocks.forEach((block) => {
       const content = block.textContent;
@@ -35,14 +38,15 @@
     });
     
     mermaid.run().then(() => {
-      // Apply medium-zoom to Mermaid SVGs after they render
+      // Wait for Mermaid to fully render the SVGs
       setTimeout(() => {
-        mediumZoom(document.querySelectorAll('.mermaid svg'), {
+        // Attach zoom to the generated SVGs
+        mediumZoom('.mermaid svg', {
           margin: 24,
           background: '#2d2d2d',
           scrollOffset: 0
         });
-      }, 500); // Small delay to ensure SVG is fully ready
+      }, 1500); // Increased delay to 1.5s to be safe
     });
   });
 </script>
