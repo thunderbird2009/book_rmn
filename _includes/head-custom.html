@@ -2,6 +2,21 @@
 <script src="https://cdn.jsdelivr.net/npm/medium-zoom@1.1.0/dist/medium-zoom.min.js"></script>
 
 <style>
+  /* Responsive Layout Overrides */
+  .inner {
+    max-width: 90% !important;
+    width: 100% !important;
+  }
+  
+  @media screen and (min-width: 1600px) {
+    .inner {
+      max-width: 1600px !important;
+    }
+    body {
+      font-size: 1.1em;
+    }
+  }
+
   /* Custom Fullscreen for Mermaid Diagrams */
   .mermaid {
     cursor: zoom-in;
