@@ -10,8 +10,14 @@ It covers topics ranging from high-performance ad serving and multi-tower deep l
 ## Available Chapters
 This repository currently hosts the following chapters:
 
+- **[Chapter 1: RMN Problem Domain](ch1_rmn_problem_domain.md)**
+  - Introduction to the Retail Media Network problem domain, the ecosystem, key stakeholders (retailers, advertisers, consumers), and the unique value proposition of first-party data in advertising.
 - **[Chapter 2: Ad Serving Architecture](ch2_ad_serving_architecture.md)**
   - Deep dive into the end-to-end request flow, system components (Ad Server, Retrieval, Scoring, Auction), and latency constraints of a sub-100ms ad serving pipeline.
+- **[Chapter 3: Auction and Cost Tracking](ch3_auction_and_cost_tracking.md)**
+  - Comprehensive coverage of auction mechanics (first-price, second-price, VCG), bid ranking strategies, cost calculation methods, and real-world auction design trade-offs.
+- **[Chapter 4: Ads Retrieval](ch4_ads_retrieval.md)**
+  - Technical deep dive into candidate generation strategies, indexing systems (inverted indices, embedding-based retrieval), approximate nearest neighbor search, multi-stage retrieval pipelines, and lightweight scoring models for efficient candidate ranking.
 - **[Chapter 5: Multi-Tower Scoring Model](ch5_multi_tower_scoring_model.md)**
   - Detailed exploration of the neural architecture used for CTR/CVR prediction, including feature engineering, tower structures, and training strategies.
 - **[Appendix 5: Embeddings](ap5_embeddings.md)**
@@ -26,10 +32,10 @@ Practical implementations and experiments are available in the `code/` directory
 ## Full Table of Contents (Preview)
 The complete work includes:
 - Ch 0: Traditional Ad Networks
-- Ch 1: The RMN Ecosystem
+- Ch 1: The RMN Problem Domain (Included)
 - Ch 2: Ad Serving Architecture (Included)
-- Ch 3: Auction & Cost Tracking
-- Ch 4: Ads Retrieval
+- Ch 3: Auction & Cost Tracking (Included)
+- Ch 4: Ads Retrieval (Included)
 - Ch 5: Multi-Tower Scoring Model (Included)
 - Ch 6: Budget Pacing & Spend Control
 - ...and more on Measurement, Data Privacy, and MLOps.
