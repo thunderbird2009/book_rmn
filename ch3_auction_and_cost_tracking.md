@@ -73,25 +73,25 @@ The adjusted eCPM formula differs based on the campaign's pricing model:
 ### 1.1 CPC (Cost-Per-Click) Campaigns
 
 $$
-\text{Adjusted\_eCPM}_{\text{CPC}} = \text{Bid}_{\text{CPC}} \times \text{pCTR} \times 1000 \times \text{Quality\_Score}_{\text{CPC}} \tag{3.1}
+\mathrm{Adjusted\_eCPM}_{\mathrm{CPC}} = \mathrm{Bid}_{\mathrm{CPC}} \times \mathrm{pCTR} \times 1000 \times \mathrm{Quality\_Score}_{\mathrm{CPC}} \tag{3.1}
 $$
 
 Where:
-- $\text{Bid}_{\text{CPC}}$: Advertiser's maximum cost-per-click bid (e.g., \$1.50)
-- $\text{pCTR}$: Predicted click-through rate from ML Inference Service (e.g., 0.05 = 5%)
-- $\text{Quality\_Score}_{\text{CPC}}$: Platform-defined quality multiplier based on conversion likelihood, ad relevance, and landing page quality (typically 0.5–1.5)
+- $\mathrm{Bid}_{\mathrm{CPC}}$: Advertiser's maximum cost-per-click bid (e.g., \$1.50)
+- $\mathrm{pCTR}$: Predicted click-through rate from ML Inference Service (e.g., 0.05 = 5%)
+- $\mathrm{Quality\_Score}_{\mathrm{CPC}}$: Platform-defined quality multiplier based on conversion likelihood, ad relevance, and landing page quality (typically 0.5–1.5)
 
 The formula converts a CPC bid into an eCPM (cost per thousand impressions) by multiplying the bid by the predicted click rate and 1000. The quality score acts as a multiplier that rewards high-quality ads and penalizes poor ones.
 
 ### 1.2 CPM (Cost-Per-Impression) Campaigns
 
 $$
-\text{Adjusted\_eCPM}_{\text{CPM}} = \text{Bid}_{\text{CPM}} \times \text{Quality\_Score}_{\text{CPM}} \tag{3.2}
+\mathrm{Adjusted\_eCPM}_{\mathrm{CPM}} = \mathrm{Bid}_{\mathrm{CPM}} \times \mathrm{Quality\_Score}_{\mathrm{CPM}} \tag{3.2}
 $$
 
 Where:
-- $\text{Bid}_{\text{CPM}}$: Advertiser's cost-per-thousand-impressions bid (e.g., \$10.00)
-- $\text{Quality\_Score}_{\text{CPM}}$: Quality multiplier based on ad relevance, landing page quality, and historical engagement (typically 0.5–1.5)
+- $\mathrm{Bid}_{\mathrm{CPM}}$: Advertiser's cost-per-thousand-impressions bid (e.g., \$10.00)
+- $\mathrm{Quality\_Score}_{\mathrm{CPM}}$: Quality multiplier based on ad relevance, landing page quality, and historical engagement (typically 0.5–1.5)
 
 Note that CPM campaigns do not include pCTR directly in the adjusted eCPM calculation (unlike CPC campaigns), because the advertiser already pays per impression regardless of clicks. However, engagement quality is still enforced through the Quality Score's `pCTR` component (detailed in Section 2.2).
 
