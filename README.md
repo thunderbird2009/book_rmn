@@ -2,6 +2,10 @@
 
 This repository contains selected chapters and code examples from a comprehensive guide on engineering Retail Media Networks (RMNs).
 
+## About the Author
+
+**Michael Lei** is a seasoned engineer with 15+ years of experience in Internet Search/Ads, Machine Learning/AI, and Distributed Systems. Key roles include founding member of Google's TeraGoogle project (recognized with Google Founders Award), tech lead on multiple data and machine learning projects in Google Display Ads, and delivering core technology products at eBay, Appen, Meta and Coupang. Holds multiple patents in Internet Ads and Content Recommendations.
+
 ## About the Book
 Retail Media Networks represent a fundamental shift in digital advertising, leveraging first-party retailer data to deliver highly relevant ads with deterministic attribution. This book explores the engineering architecture, machine learning systems, and real-time decisioning engines required to build a production-grade RMN.
 
