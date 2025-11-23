@@ -1,8 +1,8 @@
 # Chapter 3: Auction and Cost Tracking
 
-In Chapter 2, we traced the end-to-end ad serving flow and examined the architectural components that power a retail media network. We saw that the **AdServer** orchestrates a multi-stage pipeline: candidate retrieval, scoring, budget filtering, and finally the **auction**��the moment where the platform decides which ads to show and how much advertisers pay.
+In Chapter 2, we traced the end-to-end ad serving flow and examined the architectural components that power a retail media network. We saw that the **AdServer** orchestrates a multi-stage pipeline: candidate retrieval, scoring, budget filtering, and finally the **auction**—the moment where the platform decides which ads to show and how much advertisers pay.
 
-This chapter focuses on that critical auction stage in AdServer. We examine how modern ad platforms rank candidates using **adjusted eCPM** formulas that balance advertiser bids with predicted user engagement and ad quality. We detail the **quality score** mechanism��a multiplicative formula combining conversion likelihood, ad relevance, and landing page quality��and explain how each component is computed in practice. We then explore how platforms **tune the quality score weights** through online A/B experiments and offline Bayesian Optimization to optimize revenue, user experience, and advertiser satisfaction simultaneously.
+This chapter focuses on that critical auction stage in AdServer. We examine how modern ad platforms rank candidates using **adjusted eCPM** formulas that balance advertiser bids with predicted user engagement and ad quality. We detail the **quality score** mechanism—a multiplicative formula combining conversion likelihood, ad relevance, and landing page quality—and explain how each component is computed in practice. We then explore how platforms **tune the quality score weights** through online A/B experiments and offline Bayesian Optimization to optimize revenue, user experience, and advertiser satisfaction simultaneously.
 
 By the end of this chapter, you will understand:
 - How adjusted eCPM differs between CPC and CPM pricing models
@@ -11,7 +11,7 @@ By the end of this chapter, you will understand:
 - How Bayesian Optimization finds optimal quality score weights in 50-100 evaluations (vs 1000+ for grid search)
 - How auction design integrates with ML scoring predictions (pCTR, pCVR) to create a unified ranking system
 
-This is the business logic layer that sits atop the technical infrastructure��the rules that govern which advertisers win, what they pay, and how the platform balances short-term revenue against long-term ecosystem health.
+This is the business logic layer that sits atop the technical infrastructure—the rules that govern which advertisers win, what they pay, and how the platform balances short-term revenue against long-term ecosystem health.
 
 ---
 - [Chapter 3: Auction and Cost Tracking](#chapter-3-auction-and-cost-tracking)
@@ -72,9 +72,7 @@ The adjusted eCPM formula differs based on the campaign's pricing model:
 
 ### 1.1 CPC (Cost-Per-Click) Campaigns
 
-$$
-\text{AdjustedECPM}_{\text{CPC}} = \text{Bid}_{\text{CPC}} \times \text{pCTR} \times 1000 \times \text{QualityScore}_{\text{CPC}} \tag{3.1}
-$$
+$$ \text{AdjustedECPM}_{\text{CPC}} = \text{Bid}_{\text{CPC}} \times \text{pCTR} \times 1000 \times \text{QualityScore}_{\text{CPC}} \tag{3.1} $$
 
 Where:
 - $\text{Bid}_{\text{CPC}}$: Advertiser's maximum cost-per-click bid (e.g., \$1.50)
@@ -99,8 +97,8 @@ Consider two CPC campaigns competing for a single ad slot:
 
 | Campaign | Bid (CPC) | pCTR | Quality Score | Adjusted eCPM |
 |----------|-----------|------|---------------|---------------|
-| A        | \$2.00    | 3%   | 0.8           | \$2.00 �� 0.03 �� 1000 �� 0.8 = **\$48.00** |
-| B        | \$1.50    | 5%   | 1.2           | \$1.50 �� 0.05 �� 1000 �� 1.2 = **\$90.00** |
+| A        | \$2.00    | 3%   | 0.8           | \$2.00 × 0.03 × 1000 × 0.8 = **\$48.00** |
+| B        | \$1.50    | 5%   | 1.2           | \$1.50 × 0.05 × 1000 × 1.2 = **\$90.00** |
 
 Campaign B wins despite having a lower bid, because its higher predicted engagement (pCTR) and better quality score yield a higher adjusted eCPM. This mechanism incentivizes advertisers to create relevant, high-quality ads rather than simply bidding higher.
 
@@ -124,9 +122,9 @@ CPC campaigns optimize for conversions (purchases, sign-ups), so the quality sco
 
 **Typical Quality Score Ranges:**
 Quality scores typically range from **0.5** (poor quality) to **1.5** (excellent quality), with **1.0** representing average quality. Platforms normalize the component ranges (pCVR, Ad_Relevance, Landing_Page_Quality) to achieve this distribution:
-- **QS < 0.8**: Poor quality��ad loses auction priority and pays higher costs
-- **QS = 0.8�C1.2**: Average quality��neutral impact on ranking and pricing
-- **QS > 1.2**: Excellent quality��boosted in auctions and pays lower costs
+- **QS < 0.8**: Poor quality—ad loses auction priority and pays higher costs
+- **QS = 0.8–1.2**: Average quality—neutral impact on ranking and pricing
+- **QS > 1.2**: Excellent quality—boosted in auctions and pays lower costs
 
 For example, an ad with QS = 1.5 pays ~33% less than an ad with QS = 1.0 for the same auction rank (due to GSP pricing adjustments in Section 5.2).
 
@@ -148,9 +146,9 @@ The quality score uses a **multiplicative form** (product of factors raised to p
 
 1. **Non-compensatory**: If any component is very poor (close to 0), the overall quality score is low, even if other components are excellent. A highly relevant ad with a broken landing page gets penalized proportionally, not just additively.
 
-2. **Diminishing Returns**: The exponents (��, ��, ��, ��) typically sum to less than 1.0, creating diminishing returns. For example, improving pCVR from 0.01 to 0.02 (100% relative increase) has more impact than improving from 0.10 to 0.11 (10% increase).
+2. **Diminishing Returns**: The exponents (α, β, γ, δ) typically sum to less than 1.0, creating diminishing returns. For example, improving pCVR from 0.01 to 0.02 (100% relative increase) has more impact than improving from 0.10 to 0.11 (10% increase).
 
-3. **Interpretable Weights**: The exponents represent the relative importance of each factor. In the CPC formula with ��=0.5, ��=0.3, ��=0.2, conversion likelihood (pCVR) matters most, followed by ad relevance, then landing page quality.
+3. **Interpretable Weights**: The exponents represent the relative importance of each factor. In the CPC formula with α=0.5, β=0.3, γ=0.2, conversion likelihood (pCVR) matters most, followed by ad relevance, then landing page quality.
 
 4. **Scale Invariance**: Multiplicative forms are less sensitive to the absolute scale of individual components, making the formula more robust to changes in how Ad_Relevance or Landing_Page_Quality are computed.
 
@@ -187,7 +185,7 @@ This is a critical design question. The key differences are:
 - **Ad_Relevance**: $P(\text{relevant} \mid \text{query}, \text{ad})$ or match score - **content-based** relevance
   - Uses: Only query text, ad text/creative, product attributes (NO user features)
   - Answers: "Does this ad **semantically match the search query**, regardless of who searches?"
-  - Example: "winter jackets" query �� jacket ad (high relevance) vs. random trending product (low relevance)
+  - Example: "winter jackets" query → jacket ad (high relevance) vs. random trending product (low relevance)
 
 **Why both?**
 - **Quality enforcement**: Prevents advertisers from gaming the system by bidding on irrelevant queries and relying solely on high pCTR from clickbait
@@ -228,7 +226,7 @@ Ad_Relevance measures how well the ad matches the user's intent and context. It 
 
 **Approach 1: Embedding-based (vector similarity):**
 - **Cosine similarity** between query embedding and ad creative text embedding (e.g., using Sentence-BERT or ad-specific embedding models)
-- Output: Continuous similarity score �� [0, 1]
+- Output: Continuous similarity score ∈ [0, 1]
 - Computation: `cosine_similarity(embed_query(q), embed_ad(a))`
 
 **Approach 2: Rule-based (symbolic matching):**
@@ -256,7 +254,7 @@ Ad_Relevance measures how well the ad matches the user's intent and context. It 
 
 **Rule-based (categorical logic):**
 - **Category overlap**: Boolean check with scoring (same category = 1.0, parent category = 0.7, sibling category = 0.5)
-- **Complementary product score**: Rule-based lookup tables or product graphs (e.g., "camera �� lens" predefined pairs)
+- **Complementary product score**: Rule-based lookup tables or product graphs (e.g., "camera → lens" predefined pairs)
 
 **Attribute-based (mixed):**
 - **Product attribute similarity**: Can use vector embeddings (brand/category embeddings) OR simple rule-based matching (same brand = 1.0, same price tier = 0.8)
@@ -276,13 +274,13 @@ Where:
 - **QueryMatch**: Can use any of the three approaches or combine them:
   - Option A: Pure embedding (cosine similarity)
   - Option B: Pure rule-based (keyword + BM25)
-  - Option C: Weighted ensemble: 0.5 �� embedding + 0.3 �� keyword + 0.2 �� BERT_P(relevant)
+  - Option C: Weighted ensemble: 0.5 × embedding + 0.3 × keyword + 0.2 × BERT_P(relevant)
 - **Product_Match**: Rule-based category logic (0.5 weight) + attribute similarity (0.5 weight, may use embeddings or rules)
 - **Audience_Match**: Boolean segment check (0.7 weight) + CF personalization score (0.3 weight, embedding-based)
 
 Each component is normalized to [0, 1]. The result is typically further normalized to a range like [0.5, 1.5] so that poor relevance (score < 1.0) penalizes adjusted eCPM, while excellent relevance (score > 1.0) boosts it.
 
-**Key insight:** Ad_Relevance is **NOT purely vector similarity**��it combines:
+**Key insight:** Ad_Relevance is **NOT purely vector similarity**—it combines:
 1. **Vector-based**: Embedding similarities (cosine distance between query-ad, user-ad embeddings)
 2. **Rule-based**: Keyword matching (BM25, exact/phrase/broad), category logic, boolean segment checks
 3. **Supervised learning**: BERT classifiers predicting $P(\text{relevant})$ or $P(\text{click})$ from historical user behavior
@@ -296,7 +294,7 @@ This hybrid approach balances the **semantic understanding** of embeddings with 
 
 ### 3.2 Landing_Page_Quality Computation
 
-Landing_Page_Quality measures the user experience of the destination page. **This is a policy-driven metric**, not an ML prediction��the platform aggregates observable metrics from monitoring systems and user behavior logs to enforce landing page quality standards.
+Landing_Page_Quality measures the user experience of the destination page. **This is a policy-driven metric**, not an ML prediction—the platform aggregates observable metrics from monitoring systems and user behavior logs to enforce landing page quality standards.
 
 The computation combines three categories of metrics:
 
@@ -368,7 +366,7 @@ The AdServer orchestrates three data sources when computing adjusted eCPM for au
 - **Campaign metadata**: Budget, pacing strategy, targeting configuration
 
 **Integration flow:**
-AdServer receives ML predictions (pCTR, pCVR) �� fetches policy metrics and bids �� computes Quality Score using platform weights ��, ��, ��, �� (Section 4) �� applies to ranking formula (Section 1) to produce Adjusted_eCPM �� ranks candidates and runs auction (Section 5).
+AdServer receives ML predictions (pCTR, pCVR) → fetches policy metrics and bids → computes Quality Score using platform weights α, β, γ, δ (Section 4) → applies to ranking formula (Section 1) to produce Adjusted_eCPM → ranks candidates and runs auction (Section 5).
 
 This architectural separation enables independent optimization: ML models improve predictions without changing auction logic, while the platform adjusts quality thresholds and weights without retraining models. See Section 7 for complete execution flow with sequence diagrams.
 
@@ -376,7 +374,7 @@ This architectural separation enables independent optimization: ML models improv
 
 ## 4. Platform Weight Tuning
 
-The exponent weights (��, ��, ��, ��) in the quality score formulas are not arbitrary��they are **tuned through large-scale online experimentation and offline optimization** to maximize platform objectives. This section details the tuning methodology.
+The exponent weights (α, β, γ, δ) in the quality score formulas are not arbitrary—they are **tuned through large-scale online experimentation and offline optimization** to maximize platform objectives. This section details the tuning methodology.
 
 ### 4.1 Define Optimization Objectives
 
@@ -397,9 +395,9 @@ Where OEC = Overall Evaluation Criterion, and $w_1, w_2, w_3, w_4$ are strategic
 The most reliable method is **live A/B testing**:
 
 **Treatment Groups**: Different cohorts of users see ads ranked with different weight configurations. For example:
-- Control: ��=0.5, ��=0.3, ��=0.2
-- Treatment A: ��=0.6, ��=0.25, ��=0.15 (higher weight on pCVR)
-- Treatment B: ��=0.4, ��=0.4, ��=0.2 (higher weight on Ad_Relevance)
+- Control: α=0.5, β=0.3, γ=0.2
+- Treatment A: α=0.6, β=0.25, γ=0.15 (higher weight on pCVR)
+- Treatment B: α=0.4, β=0.4, γ=0.2 (higher weight on Ad_Relevance)
 
 **Duration**: Run experiments for 1-2 weeks to capture weekly seasonality and allow learning effects to stabilize.
 
@@ -418,7 +416,7 @@ Before running costly online experiments, platforms use **counterfactual evaluat
 **Estimate Metrics**: Use causal inference techniques (inverse propensity scoring, doubly robust estimation) to estimate revenue and user engagement under the counterfactual ranking.
 
 **Optimization Methods**: Choose from several approaches to search the weight space:
-- **Grid Search**: Exhaustively test predefined weight combinations (e.g., �� �� {0.3, 0.4, 0.5, 0.6}). Simple but inefficient��requires 100-1000+ evaluations.
+- **Grid Search**: Exhaustively test predefined weight combinations (e.g., α ∈ {0.3, 0.4, 0.5, 0.6}). Simple but inefficient—requires 100-1000+ evaluations.
 - **Bayesian Optimization (Preferred)** [3]: Use probabilistic models (Gaussian Processes) to intelligently select which weights to evaluate next, focusing on promising regions. Finds optimal weights in 50-100 evaluations.
 - **Random Search**: Randomly sample weight combinations as a baseline. More efficient than grid search but less sophisticated than Bayesian Optimization.
 
@@ -428,11 +426,11 @@ Bayesian Optimization (BO) is the **preferred methodology** for tuning platform 
 
 1. **Expensive Objective Function**: Each weight evaluation requires simulating auctions over 7-30 days of logs (millions of requests), which can take 30 minutes to several hours. BO minimizes the number of evaluations needed by building a surrogate model (Gaussian Process) that predicts objective values, allowing intelligent exploration vs. exploitation trade-offs.
 
-2. **Low Dimensionality**: Weight tuning typically involves 3-5 parameters (��, ��, ��, ��), which is the sweet spot for BO. BO works well up to ~10-20 dimensions, unlike neural architecture search which requires specialized methods.
+2. **Low Dimensionality**: Weight tuning typically involves 3-5 parameters (α, β, γ, δ), which is the sweet spot for BO. BO works well up to ~10-20 dimensions, unlike neural architecture search which requires specialized methods.
 
-3. **Smooth Objective Surface**: Platform revenue and engagement metrics are smooth, continuous functions of the weights��small weight changes lead to small metric changes. Gaussian Processes model this smoothness effectively, unlike tree-based methods which assume piecewise constant functions.
+3. **Smooth Objective Surface**: Platform revenue and engagement metrics are smooth, continuous functions of the weights—small weight changes lead to small metric changes. Gaussian Processes model this smoothness effectively, unlike tree-based methods which assume piecewise constant functions.
 
-4. **Constraint Handling**: BO naturally handles constraints like �� + �� + �� = 1.0 through constrained acquisition functions (Expected Improvement with constraints) or by parameterizing the search space (e.g., search only ��, �� and set �� = 1 - �� - ��).
+4. **Constraint Handling**: BO naturally handles constraints like α + β + γ = 1.0 through constrained acquisition functions (Expected Improvement with constraints) or by parameterizing the search space (e.g., search only α, β and set γ = 1 - α - β).
 
 5. **Noise Tolerance**: Counterfactual estimates (IPS) have inherent variance due to sampling and propensity estimation errors. BO's probabilistic framework accounts for this noise, unlike grid search which treats all measurements as deterministic.
 
@@ -453,7 +451,7 @@ space = [
 @use_named_args(space)
 def objective(alpha, beta, gamma):
     """Objective function to minimize (BO minimizes, so negate revenue)."""
-    # Enforce constraint: alpha + beta + gamma �� 1.0
+    # Enforce constraint: alpha + beta + gamma ≈ 1.0
     if abs(alpha + beta + gamma - 1.0) > 0.1:
         return -float('inf')  # Penalize constraint violations
     
@@ -476,13 +474,13 @@ result = gp_minimize(
     random_state=42
 )
 
-print(f"Best weights: ��={result.x[0]:.3f}, ��={result.x[1]:.3f}, ��={result.x[2]:.3f}")
+print(f"Best weights: α={result.x[0]:.3f}, β={result.x[1]:.3f}, γ={result.x[2]:.3f}")
 print(f"Best OEC: {-result.fun:.2f}")
 ```
 
 ### 4.6 Multi-Objective Bayesian Optimization
 
-In practice, platforms often need to optimize multiple competing objectives (revenue, user engagement, advertiser satisfaction) simultaneously. Multi-objective BO finds the **Pareto frontier**��the set of weight configurations where improving one metric requires sacrificing another:
+In practice, platforms often need to optimize multiple competing objectives (revenue, user engagement, advertiser satisfaction) simultaneously. Multi-objective BO finds the **Pareto frontier**—the set of weight configurations where improving one metric requires sacrificing another:
 
 ```python
 from pymoo.algorithms.moo.nsga2 import NSGA2
@@ -509,7 +507,7 @@ class WeightTuningProblem(Problem):
             constraints.append(abs(alpha + beta + gamma - 1.0))  # Constraint
         
         out["F"] = np.column_stack([revenues, engagements])
-        out["G"] = np.array(constraints) - 0.1  # g(x) �� 0 constraint
+        out["G"] = np.array(constraints) - 0.1  # g(x) ≤ 0 constraint
 
 # Run multi-objective optimization (NSGA-II algorithm) [4]
 algorithm = NSGA2(pop_size=50)
@@ -520,8 +518,8 @@ for i, solution in enumerate(result.X):
     alpha, beta, gamma = solution
     revenue = -result.F[i][0]
     engagement = -result.F[i][1]
-    print(f"Config {i}: ��={alpha:.3f}, ��={beta:.3f}, ��={gamma:.3f} "
-          f"�� Revenue=${revenue:.2f}, Engagement={engagement:.2f}")
+    print(f"Config {i}: α={alpha:.3f}, β={beta:.3f}, γ={gamma:.3f} "
+          f"→ Revenue=${revenue:.2f}, Engagement={engagement:.2f}")
 ```
 
 ### 4.7 Counterfactual Evaluation with Inverse Propensity Scoring
@@ -557,12 +555,12 @@ def simulate_auction(logs, alpha, beta, gamma):
 best_revenue = 0
 for alpha in [0.3, 0.4, 0.5, 0.6]:
     for beta in [0.2, 0.3, 0.4]:
-        gamma = 1.0 - alpha - beta  # Constraint: sum �� 1.0
+        gamma = 1.0 - alpha - beta  # Constraint: sum ≈ 1.0
         revenue, clicks = simulate_auction(logs, alpha, beta, gamma)
         if revenue > best_revenue:
             best_weights = (alpha, beta, gamma)
             best_revenue = revenue
-# Note: Grid search requires 4��3 = 12 evaluations for this coarse grid.
+# Note: Grid search requires 4×3 = 12 evaluations for this coarse grid.
 # A finer grid (0.05 increments) would require 400+ evaluations vs 50-100 for BO.
 ```
 
@@ -586,7 +584,7 @@ Best practice: Re-tune weights **quarterly** or after major model/system changes
 ### 4.10 Practical Constraints
 
 - **Stability**: Frequent weight changes confuse advertisers (their campaign performance fluctuates unpredictably). Changes are made gradually with multi-week ramp-ups.
-- **Explainability**: Simpler weight configurations (e.g., ��=0.5, ��=0.3, ��=0.2) are preferred over complex values (��=0.4837, ��=0.2915) for transparency with advertisers.
+- **Explainability**: Simpler weight configurations (e.g., α=0.5, β=0.3, γ=0.2) are preferred over complex values (α=0.4837, β=0.2915) for transparency with advertisers.
 - **Regulatory Compliance**: Some jurisdictions require auction mechanisms to be "explainable" and "fair," limiting the complexity of quality score formulas.
 
 ---
@@ -614,8 +612,8 @@ Where:
 **Intuition:** The winner pays the **minimum bid needed to beat the next competitor** (with their own pCTR and quality score).
 
 **Example:**
-- Winner: Bid = \$2.00, pCTR = 0.05, QS = 1.2 �� Adjusted eCPM = 2.00 �� 0.05 �� 1000 �� 1.2 = \$120
-- 2nd place: Bid = \$1.80, pCTR = 0.04, QS = 1.1 �� Adjusted eCPM = 1.80 �� 0.04 �� 1000 �� 1.1 = \$79.20
+- Winner: Bid = \$2.00, pCTR = 0.05, QS = 1.2 → Adjusted eCPM = 2.00 × 0.05 × 1000 × 1.2 = \$120
+- 2nd place: Bid = \$1.80, pCTR = 0.04, QS = 1.1 → Adjusted eCPM = 1.80 × 0.04 × 1000 × 1.1 = \$79.20
 
 Winner pays:
 $$\text{Actual CPC} = \frac{79.20}{0.05 \times 1000 \times 1.2} + 0.01 = \frac{79.20}{60} + 0.01 = \$1.33 \tag{3.9}$$
@@ -633,13 +631,13 @@ Quality scores affect not only **ranking** but also **pricing**. Ads with higher
 **Example showing quality score impact:**
 
 Two ads compete for the same slot:
-- **Ad A**: Bid = \$2.00, pCTR = 0.05, QS = 1.5 �� Adjusted eCPM = \$150
-- **Ad B**: Bid = \$2.50, pCTR = 0.04, QS = 1.0 �� Adjusted eCPM = \$100
+- **Ad A**: Bid = \$2.00, pCTR = 0.05, QS = 1.5 → Adjusted eCPM = \$150
+- **Ad B**: Bid = \$2.50, pCTR = 0.04, QS = 1.0 → Adjusted eCPM = \$100
 
 **Ad A wins** (higher adjusted eCPM) despite lower bid. Ad A pays:
 $$\text{Actual CPC}_A = \frac{100}{0.05 \times 1000 \times 1.5} + 0.01 = \frac{100}{75} + 0.01 = \$1.34 \tag{3.11}$$
 
-**Key insight:** Ad A bid \$2.00 but pays \$1.34 because of its **superior quality score (1.5 vs 1.0)**. This incentivizes advertisers to improve ad quality, landing pages, and relevance��benefiting the entire ecosystem.
+**Key insight:** Ad A bid \$2.00 but pays \$1.34 because of its **superior quality score (1.5 vs 1.0)**. This incentivizes advertisers to improve ad quality, landing pages, and relevance—benefiting the entire ecosystem.
 
 If Ad A had the same quality score as Ad B (QS = 1.0), it would pay \$2.00 (matching its bid) to beat Ad B.
 
@@ -681,8 +679,8 @@ $$ \text{Actual CPC} = \max\left(\frac{\text{Adjusted eCPM}_{\text{next}}}{\text
 - **Quality-adjusted reserve**: Lower reserve for high-quality ads (e.g., reserve = \$0.50 / QS)
 
 **Example with reserve price:**
-- Winner: Bid = \$1.00, pCTR = 0.03, QS = 1.1 �� Adj. eCPM = \$33
-- 2nd place: Bid = \$0.20, pCTR = 0.02, QS = 1.0 �� Adj. eCPM = \$4
+- Winner: Bid = \$1.00, pCTR = 0.03, QS = 1.1 → Adj. eCPM = \$33
+- 2nd place: Bid = \$0.20, pCTR = 0.02, QS = 1.0 → Adj. eCPM = \$4
 - GSP price: $\frac{4}{0.03 \times 1000 \times 1.1} = \$0.12$
 - Reserve price: \$0.25
 - **Actual CPC: \$0.25** (reserve price applies)
@@ -739,9 +737,9 @@ CPM charging depends on **ad position** and **viewability**:
      - Submit to BudgetSvc with `"event_type": "viewable_impression"`
 
 **Viewability standards (IAB/MRC guidelines):**
-- **Display ads**: 50% of pixels visible for ��1 continuous second
-- **Video ads**: 50% of pixels visible for ��2 continuous seconds
-- **Large ads (>242,500 px2)**: 30% of pixels visible for ��1 second
+- **Display ads**: 50% of pixels visible for ≥1 continuous second
+- **Video ads**: 50% of pixels visible for ≥2 continuous seconds
+- **Large ads (>242,500 px2)**: 30% of pixels visible for ≥1 second
 
 **Example cost event for viewable CPM:**
 ```json
@@ -781,7 +779,7 @@ The cost submission flow uses a pre-calculated pricing approach for efficiency:
    - AdServer calculates actual cost using GSP formula during auction phase
    - Encodes cost into tracking pixel/click URL returned to frontend
    - Example: `https://track.ad-platform.com/click?auction_id=789&ad_id=456&cost=1.33`
-   - No recalculation needed later��cost is "frozen" at auction time
+   - No recalculation needed later—cost is "frozen" at auction time
 
 2. **Event submission (on user interaction):**
    - Frontend fires event when user clicks ad (CPC) or ad becomes viewable (CPM)
@@ -1011,10 +1009,10 @@ Amount Due                               | $14,677.85
 - If advertiser is pay-as-you-go: Charge credit card immediately when daily spend exceeds threshold (e.g., \$100)
 
 **Integration points:**
-- **AdServer �� BudgetSvc**: Submit cost events (real-time)
-- **BudgetSvc �� BillingSvc**: Aggregate daily costs (batch, midnight)
-- **BillingSvc �� Payment Gateway**: Charge credit cards (batch or real-time depending on strategy)
-- **BillingSvc �� Advertiser Portal**: Display spend, invoices, payment history
+- **AdServer → BudgetSvc**: Submit cost events (real-time)
+- **BudgetSvc → BillingSvc**: Aggregate daily costs (batch, midnight)
+- **BillingSvc → Payment Gateway**: Charge credit cards (batch or real-time depending on strategy)
+- **BillingSvc → Advertiser Portal**: Display spend, invoices, payment history
 
 **Fraud and quality controls:**
 - **Click fraud detection**: BudgetSvc may reject cost submissions flagged as fraudulent (invalid clicks, bot traffic)
@@ -1051,8 +1049,8 @@ sequenceDiagram
     AdServer->>FeatureStore: Fetch policy metrics (Ad_Relevance, LPQ)
     FeatureStore-->>AdServer: Quality components
     
-    Note over AdServer: Compute Quality Score<br/>QS = pCVR^�� �� AR^�� �� LPQ^��
-    Note over AdServer: Compute Adjusted eCPM<br/>CPC: bid �� pCTR �� 1000 �� QS<br/>CPM: bid �� QS
+    Note over AdServer: Compute Quality Score<br/>QS = pCVR^α × AR^β × LPQ^γ
+    Note over AdServer: Compute Adjusted eCPM<br/>CPC: bid × pCTR × 1000 × QS<br/>CPM: bid × QS
     Note over AdServer: Rank by Adjusted eCPM<br/>Select top-K winners
     Note over AdServer: Apply GSP pricing<br/>Actual cost = min to beat next
     
@@ -1109,7 +1107,7 @@ This chapter covered the complete auction pipeline in retail media networks:
 
 **Ranking and Quality**: Ads are ranked by adjusted eCPM, which combines advertiser bids with quality scores. Quality scores incorporate ML predictions (pCTR, pCVR), content matching (Ad_Relevance), and platform standards (Landing_Page_Quality) to balance revenue with user experience.
 
-**Auction Pricing**: Winners are determined by adjusted eCPM, but actual costs follow Generalized Second-Price (GSP) rules��advertisers pay just enough to beat the next competitor. This incentivizes quality improvements while maximizing platform revenue through multi-slot auctions and reserve prices.
+**Auction Pricing**: Winners are determined by adjusted eCPM, but actual costs follow Generalized Second-Price (GSP) rules—advertisers pay just enough to beat the next competitor. This incentivizes quality improvements while maximizing platform revenue through multi-slot auctions and reserve prices.
 
 **Cost Tracking and Billing**: Costs are pre-calculated during the auction and encoded in tracking URLs. When users interact with ads (clicks) or ads become viewable (impressions), events flow through AdEventSvc to BudgetSvc for real-time budget tracking and pacing, then to BillingSvc for financial settlement.
 
