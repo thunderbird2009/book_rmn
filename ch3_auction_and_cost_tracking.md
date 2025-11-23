@@ -73,25 +73,25 @@ The adjusted eCPM formula differs based on the campaign's pricing model:
 ### 1.1 CPC (Cost-Per-Click) Campaigns
 
 $$
-\mathrm{Adjusted\_eCPM}_{\mathrm{CPC}} = \mathrm{Bid}_{\mathrm{CPC}} \times \mathrm{pCTR} \times 1000 \times \mathrm{Quality\_Score}_{\mathrm{CPC}} \tag{3.1}
+\mathrm{AdjustedECPM}_{\mathrm{CPC}} = \mathrm{Bid}_{\mathrm{CPC}} \times \mathrm{pCTR} \times 1000 \times \mathrm{QualityScore}_{\mathrm{CPC}} \tag{3.1}
 $$
 
 Where:
 - $\mathrm{Bid}_{\mathrm{CPC}}$: Advertiser's maximum cost-per-click bid (e.g., \$1.50)
 - $\mathrm{pCTR}$: Predicted click-through rate from ML Inference Service (e.g., 0.05 = 5%)
-- $\mathrm{Quality\_Score}_{\mathrm{CPC}}$: Platform-defined quality multiplier based on conversion likelihood, ad relevance, and landing page quality (typically 0.5–1.5)
+- $\mathrm{QualityScore}_{\mathrm{CPC}}$: Platform-defined quality multiplier based on conversion likelihood, ad relevance, and landing page quality (typically 0.5–1.5)
 
 The formula converts a CPC bid into an eCPM (cost per thousand impressions) by multiplying the bid by the predicted click rate and 1000. The quality score acts as a multiplier that rewards high-quality ads and penalizes poor ones.
 
 ### 1.2 CPM (Cost-Per-Impression) Campaigns
 
 $$
-\mathrm{Adjusted\_eCPM}_{\mathrm{CPM}} = \mathrm{Bid}_{\mathrm{CPM}} \times \mathrm{Quality\_Score}_{\mathrm{CPM}} \tag{3.2}
+\mathrm{AdjustedECPM}_{\mathrm{CPM}} = \mathrm{Bid}_{\mathrm{CPM}} \times \mathrm{QualityScore}_{\mathrm{CPM}} \tag{3.2}
 $$
 
 Where:
 - $\mathrm{Bid}_{\mathrm{CPM}}$: Advertiser's cost-per-thousand-impressions bid (e.g., \$10.00)
-- $\mathrm{Quality\_Score}_{\mathrm{CPM}}$: Quality multiplier based on ad relevance, landing page quality, and historical engagement (typically 0.5–1.5)
+- $\mathrm{QualityScore}_{\mathrm{CPM}}$: Quality multiplier based on ad relevance, landing page quality, and historical engagement (typically 0.5–1.5)
 
 Note that CPM campaigns do not include pCTR directly in the adjusted eCPM calculation (unlike CPC campaigns), because the advertiser already pays per impression regardless of clicks. However, engagement quality is still enforced through the Quality Score's `pCTR` component (detailed in Section 2.2).
 
@@ -115,13 +115,13 @@ The quality score is the platform's lever to balance revenue maximization with u
 ### 2.1 CPC Campaign Quality Score
 
 $$
-\text{Quality\_Score}_{\text{CPC}} = \text{pCVR}^{\alpha} \times \text{Ad\_Relevance}^{\beta} \times \text{Landing\_Page\_Quality}^{\gamma} \tag{3.3}
+\mathrm{QualityScore}_{\mathrm{CPC}} = \mathrm{pCVR}^{\alpha} \times \mathrm{AdRelevance}^{\beta} \times \mathrm{LandingPageQuality}^{\gamma} \tag{3.3}
 $$
 
 Where:
-- $\text{pCVR}$: Predicted conversion rate (favors ads likely to drive purchases)
-- $\text{Ad\_Relevance}$: Relevance score based on query-ad match, product-ad match
-- $\text{Landing\_Page\_Quality}$: Landing page load time, mobile-friendliness, user experience metrics
+- $\mathrm{pCVR}$: Predicted conversion rate (favors ads likely to drive purchases)
+- $\mathrm{AdRelevance}$: Relevance score based on query-ad match, product-ad match
+- $\mathrm{LandingPageQuality}$: Landing page load time, mobile-friendliness, user experience metrics
 - $\alpha, \beta, \gamma$: Platform-tuned weights (e.g., $\alpha = 0.5$, $\beta = 0.3$, $\gamma = 0.2$)
 
 CPC campaigns optimize for conversions (purchases, sign-ups), so the quality score emphasizes **pCVR** (conversion likelihood) as the primary signal.
@@ -137,13 +137,13 @@ For example, an ad with QS = 1.5 pays ~33% less than an ad with QS = 1.0 for the
 ### 2.2 CPM Campaign Quality Score
 
 $$
-\text{Quality\_Score}_{\text{CPM}} = \text{pCTR}^{\delta} \times \text{Ad\_Relevance}^{\beta} \times \text{Landing\_Page\_Quality}^{\gamma} \tag{3.4}
+\mathrm{QualityScore}_{\mathrm{CPM}} = \mathrm{pCTR}^{\delta} \times \mathrm{AdRelevance}^{\beta} \times \mathrm{LandingPageQuality}^{\gamma} \tag{3.4}
 $$
 
 Where:
-- $\text{pCTR}$: Predicted click-through rate (rewards engaging CPM ads, even though payment is per impression)
-- $\text{Ad\_Relevance}$: Same as CPC
-- $\text{Landing\_Page\_Quality}$: Same as CPC
+- $\mathrm{pCTR}$: Predicted click-through rate (rewards engaging CPM ads, even though payment is per impression)
+- $\mathrm{AdRelevance}$: Same as CPC
+- $\mathrm{LandingPageQuality}$: Same as CPC
 - $\delta, \beta, \gamma$: Platform-tuned weights (e.g., $\delta = 0.4$, $\beta = 0.3$, $\gamma = 0.3$)
 
 CPM campaigns optimize for reach and awareness (impressions, brand visibility), but the quality score still includes **pCTR** to ensure ads are engaging. Using real-time pCTR predictions (rather than historical averages) allows the quality score to adapt to the specific user and context.
