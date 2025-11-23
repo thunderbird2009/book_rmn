@@ -277,11 +277,11 @@ Ad_Relevance measures how well the ad matches the user's intent and context. It 
 
 **Example computation:**
 $$
-\text{Ad\_Relevance} = 0.4 \times \text{Query\_Match} + 0.3 \times \text{Product\_Match} + 0.3 \times \text{Audience\_Match} \tag{3.5}
+\mathrm{AdRelevance} = 0.4 \times \mathrm{QueryMatch} + 0.3 \times \mathrm{ProductMatch} + 0.3 \times \mathrm{AudienceMatch} \tag{3.5}
 $$
 
 Where:
-- **Query_Match**: Can use any of the three approaches or combine them:
+- **QueryMatch**: Can use any of the three approaches or combine them:
   - Option A: Pure embedding (cosine similarity)
   - Option B: Pure rule-based (keyword + BM25)
   - Option C: Weighted ensemble: 0.5 × embedding + 0.3 × keyword + 0.2 × BERT_P(relevant)
@@ -329,7 +329,7 @@ The computation combines three categories of metrics:
 
 **Example computation:**
 $$
-\text{Landing\_Page\_Quality} = \text{Technical\_Score}^{0.4} \times \text{Behavioral\_Score}^{0.4} \times \text{Content\_Score}^{0.2} \tag{3.6}
+\mathrm{LandingPageQuality} = \mathrm{TechnicalScore}^{0.4} \times \mathrm{BehavioralScore}^{0.4} \times \mathrm{ContentScore}^{0.2} \tag{3.6}
 $$
 
 Each sub-score is computed from aggregated historical data (e.g., average page load time over the past 7 days, bounce rate for the campaign's landing page). The result is normalized to [0.5, 1.5], where:
@@ -337,7 +337,7 @@ Each sub-score is computed from aggregated historical data (e.g., average page l
 - < 1.0 = below-average (penalized in auction)
 - > 1.0 = above-average (boosted in auction)
 
-**Key distinction**: Unlike pCTR/pCVR (which predict future user actions using ML), Landing_Page_Quality **measures past observed quality** through platform monitoring and policy enforcement. The platform sets thresholds (e.g., "page load time > 3s results in 0.8 LPQ score") and applies them uniformly based on logged data.
+**Key distinction**: Unlike pCTR/pCVR (which predict future user actions using ML), LandingPageQuality **measures past observed quality** through platform monitoring and policy enforcement. The platform sets thresholds (e.g., "page load time > 3s results in 0.8 LPQ score") and applies them uniformly based on logged data.
 
 ### 3.3 Pre-computation vs. Real-time
 
@@ -399,7 +399,7 @@ Platforms balance multiple, often competing objectives:
 The most common approach is to define a **composite metric** that combines these:
 
 $$
-\text{Platform\_OEC} = w_1 \times \text{Revenue} + w_2 \times \text{User\_Engagement} - w_3 \times \text{Bounce\_Rate} + w_4 \times \text{Advertiser\_Satisfaction} \tag{3.7}
+\mathrm{PlatformOEC} = w_1 \times \mathrm{Revenue} + w_2 \times \mathrm{UserEngagement} - w_3 \times \mathrm{BounceRate} + w_4 \times \mathrm{AdvertiserSatisfaction} \tag{3.7}
 $$
 
 Where OEC = Overall Evaluation Criterion, and $w_1, w_2, w_3, w_4$ are strategically set (often with revenue as primary but constrained by UX thresholds).
