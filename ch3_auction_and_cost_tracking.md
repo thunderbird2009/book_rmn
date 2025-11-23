@@ -185,12 +185,12 @@ Unlike pCTR and pCVR (which are neural network predictions of future behavior), 
 This is a critical design question. The key differences are:
 
 **1. pCTR vs Ad_Relevance:**
-- **pCTR** (from ML Inference Service): P(click | **user**, ad, context) - **personalized** prediction
+- **pCTR** (from ML Inference Service): $P(\text{click} \mid \text{user}, \text{ad}, \text{context})$ - **personalized** prediction
   - Uses: User demographics, behavior history, user embeddings, contextual signals
   - Answers: "Will **this specific user** click **this ad** right now?"
   - Example: A user who clicks everything might have high pCTR even for irrelevant ads
   
-- **Ad_Relevance**: P(relevant | **query**, ad) or match score - **content-based** relevance
+- **Ad_Relevance**: $P(\text{relevant} \mid \text{query}, \text{ad})$ or match score - **content-based** relevance
   - Uses: Only query text, ad text/creative, product attributes (NO user features)
   - Answers: "Does this ad **semantically match the search query**, regardless of who searches?"
   - Example: "winter jackets" query → jacket ad (high relevance) vs. random trending product (low relevance)
@@ -202,7 +202,7 @@ This is a critical design question. The key differences are:
 - **Explainability**: Advertisers can understand why their ad lost auction ("low relevance to query") vs. opaque pCTR
 
 **2. pCVR vs Landing_Page_Quality:**
-- **pCVR** (from ML Inference Service): P(conversion | **user**, ad, click) - **personalized** prediction
+- **pCVR** (from ML Inference Service): $P(\text{conversion} \mid \text{user}, \text{ad}, \text{click})$ - **personalized** prediction
   - Uses: User purchase history, browsing patterns, likelihood to convert
   - Answers: "Will **this user** convert if they click?"
   - Example: A high-intent user might convert even on a slow, poorly-designed landing page
@@ -249,7 +249,7 @@ Ad_Relevance measures how well the ad matches the user's intent and context. It 
   - Negative labels: Impressions without clicks (user ignored)
   - Optional: Human annotations for semantic relevance (expensive but higher quality)
 - Model: Fine-tuned BERT taking `[CLS] query [SEP] ad_text [SEP]` as input
-- Output: **P(user will engage | query, ad)** - probability of engagement given query-ad pair
+- Output: $P(\text{user will engage} \mid \text{query}, \text{ad})$ - probability of engagement given query-ad pair
 - **What BERT learns**: The model captures both **semantic relevance** (does ad match query meaning?) AND **commercial intent** (do users actually click this type of ad for this query?). Training on clicks means the model learns which query-ad pairs drive engagement, not just similarity.
 - Computation: Combines query-ad representations in transformer layers, outputs classification probability via sigmoid/softmax
 
@@ -293,9 +293,9 @@ Each component is normalized to [0, 1]. The result is typically further normaliz
 **Key insight:** Ad_Relevance is **NOT purely vector similarity**—it combines:
 1. **Vector-based**: Embedding similarities (cosine distance between query-ad, user-ad embeddings)
 2. **Rule-based**: Keyword matching (BM25, exact/phrase/broad), category logic, boolean segment checks
-3. **Supervised learning**: BERT classifiers predicting P(relevant) or P(click) from historical user behavior
+3. **Supervised learning**: BERT classifiers predicting $P(\text{relevant})$ or $P(\text{click})$ from historical user behavior
 
-**What does BERT predict?** The BERT classifier predicts **P(user will find this ad relevant given the query)**, trained on:
+**What does BERT predict?** The BERT classifier predicts $P(\text{user will find this ad relevant given the query})$, trained on:
 - Positive examples: Query-ad pairs that received clicks or conversions
 - Negative examples: Query-ad pairs that were shown but not clicked
 - This captures both semantic similarity AND commercial intent (what users actually engage with)
