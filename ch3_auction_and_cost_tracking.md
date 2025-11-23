@@ -77,7 +77,7 @@ $$ \text{AdjustedECPM}_{\text{CPC}} = \text{Bid}_{\text{CPC}} \times \text{pCTR}
 Where:
 - $\text{Bid}_{\text{CPC}}$: Advertiser's maximum cost-per-click bid (e.g., \$1.50)
 - $\text{pCTR}$: Predicted click-through rate from ML Inference Service (e.g., 0.05 = 5%)
-- $\text{QualityScore}_{\text{CPC}}$: Platform-defined quality multiplier based on conversion likelihood, ad relevance, and landing page quality (typically 0.5�C1.5)
+- $\text{QualityScore}_{\text{CPC}}$: Platform-defined quality multiplier based on conversion likelihood, ad relevance, and landing page quality (typically 0.5–1.5)
 
 The formula converts a CPC bid into an eCPM (cost per thousand impressions) by multiplying the bid by the predicted click rate and 1000. The quality score acts as a multiplier that rewards high-quality ads and penalizes poor ones.
 
@@ -87,7 +87,7 @@ $$ \text{AdjustedECPM}_{\text{CPM}} = \text{Bid}_{\text{CPM}} \times \text{Quali
 
 Where:
 - $\text{Bid}_{\text{CPM}}$: Advertiser's cost-per-thousand-impressions bid (e.g., \$10.00)
-- $\text{QualityScore}_{\text{CPM}}$: Quality multiplier based on ad relevance, landing page quality, and historical engagement (typically 0.5�C1.5)
+- $\text{QualityScore}_{\text{CPM}}$: Quality multiplier based on ad relevance, landing page quality, and historical engagement (typically 0.5–1.5)
 
 Note that CPM campaigns do not include pCTR directly in the adjusted eCPM calculation (unlike CPC campaigns), because the advertiser already pays per impression regardless of clicks. However, engagement quality is still enforced through the Quality Score's `pCTR` component (detailed in Section 2.2).
 
@@ -323,7 +323,7 @@ $$ \text{LandingPageQuality} = \text{TechnicalScore}^{0.4} \times \text{Behavior
 Each sub-score is computed from aggregated historical data (e.g., average page load time over the past 7 days, bounce rate for the campaign's landing page). The result is normalized to [0.5, 1.5], where:
 - 1.0 = average landing page quality
 - < 1.0 = below-average (penalized in auction)
-- > 1.0 = above-average (boosted in auction)
+- \> 1.0 = above-average (boosted in auction)
 
 **Key distinction**: Unlike pCTR/pCVR (which predict future user actions using ML), LandingPageQuality **measures past observed quality** through platform monitoring and policy enforcement. The platform sets thresholds (e.g., "page load time > 3s results in 0.8 LPQ score") and applies them uniformly based on logged data.
 
