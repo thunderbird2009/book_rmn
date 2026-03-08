@@ -1,4 +1,4 @@
-# Building Retail Media Networks: Architecture, Algorithms, and Machine Learning
+# Retail Media Networks: Engineering AI-Native Advertising Platforms
 
 This repository contains selected chapters and code examples from a comprehensive guide on engineering Retail Media Networks (RMNs).
 
@@ -12,36 +12,50 @@ Retail Media Networks represent a fundamental shift in digital advertising, leve
 It covers topics ranging from high-performance ad serving and multi-tower deep learning models to auction mechanics, budget pacing, and privacy-preserving data infrastructure.
 
 ## Available Chapters
-This repository currently hosts the following chapters:
+This repository currently hosts the following chapters for public access:
 
-- **[Chapter 1: RMN Problem Domain](ch1_rmn_problem_domain.md)**
-  - Introduction to the Retail Media Network problem domain, the ecosystem, key stakeholders (retailers, advertisers, consumers), and the unique value proposition of first-party data in advertising.
-- **[Chapter 2: Ad Serving Architecture](ch2_ad_serving_architecture.md)**
-  - Deep dive into the end-to-end request flow, system components (Ad Server, Retrieval, Scoring, Auction), and latency constraints of a sub-100ms ad serving pipeline.
-- **[Chapter 3: Auction and Cost Tracking](ch3_auction_and_cost_tracking.md)**
-  - Comprehensive coverage of auction mechanics (first-price, second-price, VCG), bid ranking strategies, cost calculation methods, and real-world auction design trade-offs.
-- **[Chapter 4: Ads Retrieval](ch4_ads_retrieval.md)**
+- **[Preface](preface.md)**
+  - Overview of the book's motivation, target audience, and organization.
+- **[Chapter 2: The Retail Media Network Ecosystem](ch2_rmn_problem_domain.md)**
+  - Defines what RMNs are, why they emerged, and what makes them architecturally distinct from traditional networks. Maps the domain—campaign hierarchies, targeting types, bidding mechanics, measurement—so that engineering decisions in later chapters are grounded in business context.
+- **[Chapter 5: Ads Retrieval](ch5_ads_retrieval.md)**
   - Technical deep dive into candidate generation strategies, indexing systems (inverted indices, embedding-based retrieval), approximate nearest neighbor search, multi-stage retrieval pipelines, and lightweight scoring models for efficient candidate ranking.
-- **[Chapter 5: Multi-Tower Scoring Model](ch5_multi_tower_scoring_model.md)**
-  - Detailed exploration of the neural architecture used for CTR/CVR prediction, including feature engineering, tower structures, and training strategies.
-- **[Appendix 5: Embeddings](ap5_embeddings.md)**
+- **[Chapter 6: Multi-Tower Scoring Model](ch6_multi_tower_scoring_model.md)**
+  - Detailed exploration of the neural architecture for CTR/CVR prediction, including feature engineering, tower structures, multi-task learning, and training strategies.
+- **[Appendix 2: Embedding Architectures for Sequential Features](ap2_embeddings.md)**
   - Technical foundations for embedding-based feature encoding, covering sequential encoders and advanced techniques for representing user and product data.
 
 ## Code & Notebooks
 Practical implementations and experiments are available in the `code/` directory:
 
-- **[Multi-Tower Scoring Model (Notebook)](https://github.com/thunderbird2009/book_rmn/blob/main/code/ch5_multi_tower_scoring_model.ipynb)**: A hands-on implementation of the scoring model discussed in Chapter 5.
-- **[Embeddings Test (Notebook)](https://github.com/thunderbird2009/book_rmn/blob/main/code/ap5_embeddings_test.ipynb)**: Experiments with embedding architectures.
+- **[Multi-Tower Scoring Model (Notebook)](code/ch6_multi_tower_scoring_model.ipynb)**: A hands-on implementation of the scoring model discussed in Chapter 6.
+- **[Embeddings Test (Notebook)](code/ap2_embeddings_test.ipynb)**: Experiments with embedding architectures.
 
 ## Full Table of Contents (Preview)
 The complete work includes:
-- Ch 0: Traditional Ad Networks
-- Ch 1: The RMN Problem Domain (Included)
-- Ch 2: Ad Serving Architecture (Included)
-- Ch 3: Auction & Cost Tracking (Included)
-- Ch 4: Ads Retrieval (Included)
-- Ch 5: Multi-Tower Scoring Model (Included)
-- Ch 6: Budget Pacing & Spend Control
-- ...and more on Measurement, Data Privacy, and MLOps.
 
+**Part I — Foundations**
+- Ch 1: Traditional Ad Networks
+- Ch 2: The RMN Problem Domain (Public Access)
 
+**Part II — Core Serving Stack**
+- Ch 3: Ad Serving Architecture
+- Ch 4: Auction & Cost Tracking
+- Ch 5: Ads Retrieval (Public Access)
+- Ch 6: Multi-Tower Scoring Model (Public Access)
+- Ch 7: Budget Pacing & Spend Control
+
+**Part III — Media Planning & Optimization**
+- Ch 8: Automated Creative Generation
+- Ch 9: Creative Selection and Learning
+- Ch 10: Predictive Audiences
+
+**Part IV — Trust, Measurement & Governance**
+- Ch 11: Ad Fraud Detection and Prevention
+- Ch 12: Measurement, Attribution, and Incrementality
+- Ch 13: Privacy, Governance & Identity Resolution
+
+**Part V — Appendices**
+- Appendix 1: AdIndex System Implementation
+- Appendix 2: Embedding Architectures for Sequential Features (Public Access)
+- Appendix 3: Identity Solution Implementations
