@@ -26,10 +26,10 @@ This repository currently hosts the following chapters for public access:
   - Technical foundations for embedding-based feature encoding, covering sequential encoders and advanced techniques for representing user and product data.
 
 ## Code & Notebooks
-Practical implementations and experiments are available in the `code/` directory:
+Practical implementations and experiments are available in the [`code/`](https://github.com/thunderbird2009/book_rmn/tree/main/code) directory:
 
-- **[Multi-Tower Scoring Model (Notebook)](code/ch6_multi_tower_scoring_model.ipynb)**: A hands-on implementation of the scoring model discussed in Chapter 6.
-- **[Embeddings Test (Notebook)](code/ap2_embeddings_test.ipynb)**: Experiments with embedding architectures.
+- **[Multi-Tower Scoring Model (Notebook)](https://github.com/thunderbird2009/book_rmn/blob/main/code/ch6_multi_tower_scoring_model.ipynb)**: A hands-on implementation of the scoring model discussed in Chapter 6.
+- **[Embeddings Test (Notebook)](https://github.com/thunderbird2009/book_rmn/blob/main/code/ap2_embeddings_test.ipynb)**: Experiments with embedding architectures.
 
 ## Full Table of Contents (Preview)
 The complete work includes:
