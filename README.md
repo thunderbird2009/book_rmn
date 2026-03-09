@@ -24,6 +24,8 @@ This repository currently hosts the following chapters for public access:
   - Detailed exploration of the neural architecture for CTR/CVR prediction, including feature engineering, tower structures, multi-task learning, and training strategies.
 - **[Appendix 2: Embedding Architectures for Sequential Features](ap2_embeddings.md)**
   - Technical foundations for embedding-based feature encoding, covering sequential encoders and advanced techniques for representing user and product data.
+- **[Glossary](glossary.md)**
+  - Alphabetically organized definitions of 80+ key technical terms, acronyms, and concepts used throughout the book, with cross-references to relevant chapters.
 
 ## Code & Notebooks
 Practical implementations and experiments are available in the [`code/`](https://github.com/thunderbird2009/book_rmn/tree/main/code) directory:
@@ -62,4 +64,4 @@ The complete work includes:
 - Appendix 3: Identity Solution Implementations
 
 **Back Matter**
-- [Glossary](glossary.md)
+- [Glossary](glossary.md) (Public Access)
