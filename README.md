@@ -59,3 +59,6 @@ The complete work includes:
 - Appendix 1: AdIndex System Implementation
 - Appendix 2: Embedding Architectures for Sequential Features (Public Access)
 - Appendix 3: Identity Solution Implementations
+
+**Back Matter**
+- [Glossary](glossary.md)

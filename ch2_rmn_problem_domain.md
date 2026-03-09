@@ -118,7 +118,7 @@ Advertisers organize spending in a three-level hierarchy:
 
 ### 2.2. Glossary of Core Terms
 
-This glossary provides brief definitions with forward references to detailed sections.
+This glossary provides brief definitions with forward references to detailed sections; for a comprehensive alphabetical reference covering all chapters, see the [Glossary](glossary.md).
 
 **Targeting (see Section 4.3 for details):**
 - **Keywords**: Advertiser-specified terms matched against user search queries (exact/phrase/broad match)

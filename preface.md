@@ -62,6 +62,8 @@ The book follows the natural architecture of an RMN ad-serving platform, moving 
 
 - **Appendix 3: Identity Solution Implementations** provides specific technical details for deploying privacy-preserving identity solutions—UID2 reference implementation, RampID, ID5, EUID, and multi-vendor integration strategies.
 
+A **Glossary** in the back matter collects definitions of key terms, acronyms, and concepts from all chapters into a single alphabetical reference.
+
 Each chapter from Part II onward contains production-quality PyTorch code examples, Mermaid architecture diagrams, and concrete latency/scale targets grounded in real-world RMN operating conditions.
 
 **The technology evolution at a glance.** The progression from traditional to modern ad networks spans five dimensions:
