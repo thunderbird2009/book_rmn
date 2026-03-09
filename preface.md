@@ -50,9 +50,11 @@ The book follows the natural architecture of an RMN ad-serving platform, moving 
 
 - **Chapter 11: Ad Fraud Detection and Prevention** builds the multi-layer fraud defense system—rule-based filters, behavioral analysis, ML scoring, device fingerprinting, and advertiser refund workflows.
 
-- **Chapter 12: Measurement, Attribution, and Incrementality** engineers the event-joining, attribution, and incrementality infrastructure that closes the feedback loop between ad serving and campaign performance.
+- **Chapter 12: Measurement Infrastructure and Attribution** engineers the event-joining, attribution, and reporting infrastructure that closes the feedback loop between ad serving and campaign performance.
 
 - **Chapter 13: Privacy, Governance & Identity Resolution** implements privacy-preserving identity resolution, consent management, differential privacy for aggregate reporting, and compliance monitoring.
+
+- **Chapter 14: Advertiser Measurement Analytics** covers the analytical methods that sit on top of the measurement infrastructure — incrementality experiments, bid landscape forecasting via survival analysis, and media mix modeling — giving advertisers the tools to evaluate and optimize their RMN investment.
 
 **Part V — Appendices** provides deep technical references for practitioners:
 
@@ -68,7 +70,7 @@ Each chapter from Part II onward contains production-quality PyTorch code exampl
 
 **The technology evolution at a glance.** The progression from traditional to modern ad networks spans five dimensions:
 
-| Dimension | Traditional (Ch 1) | Modern RMN (Ch 3–13) |
+| Dimension | Traditional (Ch 1) | Modern RMN (Ch 3–14) |
 |-----------|--------------------|-----------------------|
 | **Retrieval** | Inverted indices, boolean matching | Two-tower embeddings, ANN vector search (FAISS/ScaNN/HNSW) |
 | **Ranking** | Logistic regression + feature crosses | Wide&Deep, DeepFM, DCN, DIN/DIEN, Transformer models |

@@ -52,8 +52,9 @@ The complete work includes:
 
 **Part IV — Trust, Measurement & Governance**
 - Ch 11: Ad Fraud Detection and Prevention
-- Ch 12: Measurement, Attribution, and Incrementality
+- Ch 12: Measurement Infrastructure and Attribution
 - Ch 13: Privacy, Governance & Identity Resolution
+- Ch 14: Advertiser Measurement Analytics
 
 **Part V — Appendices**
 - Appendix 1: AdIndex System Implementation

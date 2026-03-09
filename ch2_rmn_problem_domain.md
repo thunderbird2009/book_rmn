@@ -307,7 +307,7 @@ Advertisers monitor dashboards for pacing, CTR trends, and segment-level ROAS, a
 
 ## 6. Measurement and Attribution
 
-Measurement closes the advertiser lifecycle loop introduced in Section 3. RMNs' deterministic attribution, where every event (impression, click, purchase) is logged under the same first-party user ID, enables same-day ROAS reporting and causal inference that traditional networks cannot match. Chapter 12 covers the engineering infrastructure (event joining, attribution pipelines, incrementality experimentation) end to end; this section defines the key concepts.
+Measurement closes the advertiser lifecycle loop introduced in Section 3. RMNs' deterministic attribution, where every event (impression, click, purchase) is logged under the same first-party user ID, enables same-day ROAS reporting and causal inference that traditional networks cannot match. Chapter 12 covers the engineering infrastructure (event joining, attribution pipelines, reporting) end to end; Chapter 14 covers the analytical methods (incrementality experimentation, bid landscapes, media mix modeling); this section defines the key concepts.
 
 ### 6.1. Core Metrics
 
@@ -333,7 +333,7 @@ Measurement closes the advertiser lifecycle loop introduced in Section 3. RMNs' 
 
 The gold standard for causal measurement is **holdout experiments**: randomly withhold ads from a control group and measure lift. Geo experiments (test vs. matched control markets) reduce spillover and are essential for measuring offline impact. PSA controls (showing neutral ads to the control group) isolate the effect of the specific ad message versus the mere presence of any ad.
 
-Most RMNs run internal incrementality studies but do not yet expose self-serve experimentation tools to advertisers, a significant gap compared to mature platforms like Google Campaign Experiments. Chapter 12 covers holdout design, geo experiments, and clean-room analytics in detail.
+Most RMNs run internal incrementality studies but do not yet expose self-serve experimentation tools to advertisers, a significant gap compared to mature platforms like Google Campaign Experiments. Chapter 14 covers holdout design, geo experiments, and causal lift estimation in detail.
 
 ### 6.4. Closing the Loop
 
