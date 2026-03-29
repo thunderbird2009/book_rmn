@@ -34,7 +34,6 @@ This chapter establishes the RMN problem domain before we build the systems in s
   - [6.4. Closing the Loop](#64-closing-the-loop)
 - [Summary and Next Steps](#summary-and-next-steps)
 - [References and Further Reading](#references-and-further-reading)
-
 </details>
 
 ---
@@ -69,7 +68,7 @@ The architectural delta between RMNs and traditional third-party networks (Chapt
 **Table 2.1: RMN vs. Traditional Ad Network Comparison**
 
 | Dimension | Traditional Ad Networks | Retail Media Networks |
-|-----------|------------------------|----------------------|
+| --- | --- | --- |
 | **Inventory Source** | Aggregated from many publishers via exchanges | Retailer owns site/app; controls all placements |
 | **Targeting Foundation** | Third-party cookies, probabilistic identity graphs | First-party data: logged-in user IDs, purchase history, deterministic identity |
 | **Attribution** | Multi-touch, 7–30 day windows, probabilistic | Closed-loop: ad impression and conversion both logged under same user ID |
@@ -100,13 +99,13 @@ Advertisers organize spending in a three-level hierarchy:
 
 1. **Campaign**: Top-level container with a business objective (e.g., "Q4 Holiday Promotion"), overall budget, date range, and default bidding strategy.
 2. **Ad Group**: Within a campaign, groups ads by product category, audience, or targeting theme. Each ad group has:
-   - **Targeting rules**: Keywords (for search ads) or audience segments (for display)
-   - **Bid settings**: Default bid or bid adjustments
-   - **Budget allocation**: Optional daily/lifetime budget caps
+  - **Targeting rules**: Keywords (for search ads) or audience segments (for display)
+  - **Bid settings**: Default bid or bid adjustments
+  - **Budget allocation**: Optional daily/lifetime budget caps
 3. **Ad**: Individual creative unit (single SKU for Sponsored Products, banner image for display). Each ad:
-   - **Inherits targeting and bidding** from its parent ad group
-   - **Participates in auctions** as the atomic unit
-   - **Has creative-specific attributes**: landing page URL, tracking parameters
+  - **Inherits targeting and bidding** from its parent ad group
+  - **Participates in auctions** as the atomic unit
+  - **Has creative-specific attributes**: landing page URL, tracking parameters
 
 **Key insight**: Targeting and bidding are configured at the ad group level, but individual ads within that group participate in auctions as distinct candidates.
 
@@ -118,7 +117,7 @@ Advertisers organize spending in a three-level hierarchy:
 
 ### 2.2. Glossary of Core Terms
 
-This glossary provides brief definitions with forward references to detailed sections; for a comprehensive alphabetical reference covering all chapters, see the [Glossary](glossary.md).
+This glossary provides brief definitions with forward references to detailed sections; for a comprehensive alphabetical reference covering all chapters, see the [glossary.md](./glossary.md).
 
 **Targeting (see Section 4.3 for details):**
 - **Keywords**: Advertiser-specified terms matched against user search queries (exact/phrase/broad match)
@@ -190,7 +189,7 @@ graph TB
 **Table 2.2: Advertiser Lifecycle Phases and Platform Components**
 
 | Phase | Activities | Key Metrics | Platform Components | Sections |
-|-------|-----------|-------------|---------------------|----------|
+| --- | --- | --- | --- | --- |
 | **Planning** | Define goals, select products/audiences, build campaigns, create creatives, set budgets/bids | Forecasted reach, estimated ROAS | Campaign Management, Creative Management, Targeting & Audience | Section 4 |
 | **Execution** | Launch campaigns, monitor auctions, optimize bids/budgets, A/B test creatives, adjust targeting | Impressions, clicks, CTR, spend pacing, ROAS-to-date | Ad Serving, Bidding Engine, Budget Pacing, Real-time Dashboards | Section 5 |
 | **Measurement** | Analyze ROAS/CPA, attribution breakdowns, incrementality studies, refine strategy for next cycle | Final ROAS/CPA, incremental conversions, audience insights | Reporting & Analytics, Attribution Engine, Experimentation Platform | Section 6 |
@@ -242,7 +241,7 @@ Targeting mechanisms are independent of placement: they can be layered and combi
 
 **Keyword targeting.** Advertisers bid on search queries via match types: exact ("laundry detergent"), phrase ("best laundry detergent brands"), and broad (expanded via embeddings/synonyms to "stain cleaning products"). Negative keywords exclude irrelevant traffic. Keyword targeting is primarily used on SRP placements but also applies to browse pages when the platform maps category navigation to implicit queries. The retrieval system that resolves these matches at serving time is built in Chapter 5.
 
-**Audience targeting.** Audiences are defined by boolean rules over first-party attributes: behavioral ("searched running shoes in past 7 days AND didn't purchase"), transactional ("purchased competitor brand 3+ times in 90 days"), or predictive ("propensity > 50% to purchase in category X this week"). At serve time the ad server evaluates these rules against user features fetched from a feature store. Audience targeting works on *every* placement type: it can narrow SRP ads to high-value users, power display banners on the homepage, or define off-site retargeting segments. Advertisers never see user-level data, only aggregate audience sizes and campaign metrics. For predictive audience construction using ML models, see [Chapter 10](ch10_predictive_audiences.md).
+**Audience targeting.** Audiences are defined by boolean rules over first-party attributes: behavioral ("searched running shoes in past 7 days AND didn't purchase"), transactional ("purchased competitor brand 3+ times in 90 days"), or predictive ("propensity > 50% to purchase in category X this week"). At serve time the ad server evaluates these rules against user features fetched from a feature store. Audience targeting works on *every* placement type: it can narrow SRP ads to high-value users, power display banners on the homepage, or define off-site retargeting segments. Advertisers never see user-level data, only aggregate audience sizes and campaign metrics. For predictive audience construction using ML models, see [ch10_predictive_audiences.md](./ch10_predictive_audiences.md).
 
 **Contextual targeting.** Ads match the current page rather than the user: a specific product detail page (conquest campaigns on competitor ASINs), a product category (optionally refined by price range or rating), or complementary products (coffee ads on espresso-machine pages). Contextual targeting has zero dependency on user identity or feature stores, so it works with sub-millisecond latency and raises no privacy concerns.
 
@@ -253,7 +252,7 @@ In practice, campaigns layer mechanisms using boolean AND / OR / negation logic.
 **Table 2.3: Common Placement-Targeting Combinations**
 
 | Placement | Typical Targeting Stack | Example |
-|-----------|------------------------|---------|
+| --- | --- | --- |
 | SRP | Keyword, Product (Contextual), Audience | Bid on "protein bar" only for users with >3 prior purchases in snacks |
 | PDP | Contextual, Audience | Show ad on competitor ASIN pages to users who bought your brand before |
 | Browse page | Contextual, Keyword (implicit) | Target "Sports & Outdoors" category for users browsing running shoes |
@@ -286,7 +285,7 @@ RMNs predominantly use **generalized second-price (GSP)** auctions: the winner p
 **Table 2.4: Campaign Goals and Bidding Strategies**
 
 | Campaign Goal | Typical Bidding Strategy | Who Sets the Bid | Platform's Role |
-|---------------|--------------------------|-------------------|-----------------|
+| --- | --- | --- | --- |
 | Awareness (maximize reach) | Manual CPM | Advertiser | Auction only |
 | Consideration (drive traffic) | Manual CPC | Advertiser | Auction only |
 | Consideration (drive traffic) | Dynamic bidding (CPC) | Advertiser sets base bid; platform adjusts | Multiply bid per-auction by a modifier based on pCTR or pCVR |
@@ -314,8 +313,8 @@ Measurement closes the advertiser lifecycle loop introduced in Section 3. RMNs' 
 **Table 2.5: Core RMN Performance Metrics**
 
 | Metric | Formula | What it measures |
-|--------|---------|-----------------|
-| **ROAS** | `attributed_revenue / ad_spend` | Revenue per dollar spent; the primary performance signal of a campaign or ad group for advertisers|
+| --- | --- | --- |
+| **ROAS** | `attributed_revenue / ad_spend` | Revenue per dollar spent; the primary performance signal of a campaign or ad group for advertisers |
 | **CPA** | `ad_spend / conversions` | Cost per acquisition |
 | **CTR** | `clicks / impressions` | Ad relevance and creative quality |
 | **CVR** | `conversions / clicks` | Landing page and product-market fit |
