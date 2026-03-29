@@ -1,6 +1,6 @@
 # Chapter 2: The Retail Media Network (RMN) Ecosystem
 
-Retail media networks represent a fundamental architectural shift in digital advertising. Unlike traditional third-party ad networks (Chapter 1), which relied on cookie-based targeting and probabilistic attribution, RMNs exploit **vertical integration**: the retailer owns the e-commerce site, tracks shopper behavior through first-party data, and measures advertising effectiveness with deterministic closed-loop attribution. This integration changes everything: retrieval strategies, ranking objectives, measurement infrastructure, and privacy controls. It also introduces new engineering challenges at the intersection of e-commerce, ML systems, and real-time serving.
+Retail media networks represent a fundamental architectural shift in digital advertising. Unlike traditional third-party ad networks (**Chapter 1**), which relied on cookie-based targeting and probabilistic attribution, RMNs exploit **vertical integration**: the retailer owns the e-commerce site, tracks shopper behavior through first-party data, and measures advertising effectiveness with deterministic closed-loop attribution. This integration changes everything: retrieval strategies, ranking objectives, measurement infrastructure, and privacy controls. It also introduces new engineering challenges at the intersection of e-commerce, ML systems, and real-time serving.
 
 This chapter establishes the RMN problem domain before we build the systems in subsequent chapters. We follow the advertiser's journey: understanding what RMNs are and their core terminology, then walking through campaign planning, execution and optimization, and measurement. Understanding this landscape is essential: engineering choices cascade from business requirements, and we must architect systems that balance monetization, user experience, and privacy under brutal latency constraints (10–50ms at 10K–50K QPS).
 
@@ -42,7 +42,7 @@ This chapter establishes the RMN problem domain before we build the systems in s
 
 ### 1.1. What is a Retail Media Network?
 
-A **retail media network (RMN)** is an advertising platform operated by a retailer, enabling brands (often the retailer's suppliers or endemic advertisers) to place ads on the retailer's owned properties, including website, mobile app, and increasingly off-site placements via demand-side platform (DSP) integrations. Unlike traditional display or search ad networks (Chapter 1), which aggregate inventory from many publishers and rely on third-party cookies for targeting, RMNs control both the supply side (inventory) and the demand side (advertiser access to first-party shopper data). This vertical integration yields deterministic attribution: when a shopper clicks a sponsored product ad and purchases that item minutes later, the retailer's logs record both events under the same user ID, enabling precise measurement of ad-driven revenue.
+A **retail media network (RMN)** is an advertising platform operated by a retailer, enabling brands (often the retailer's suppliers or endemic advertisers) to place ads on the retailer's owned properties, including website, mobile app, and increasingly off-site placements via demand-side platform (DSP) integrations. Unlike traditional display or search ad networks (**Chapter 1**), which aggregate inventory from many publishers and rely on third-party cookies for targeting, RMNs control both the supply side (inventory) and the demand side (advertiser access to first-party shopper data). This vertical integration yields deterministic attribution: when a shopper clicks a sponsored product ad and purchases that item minutes later, the retailer's logs record both events under the same user ID, enabling precise measurement of ad-driven revenue.
 
 **Why now?** Three forces converged: **privacy regulation, e-commerce scale, and technology maturity**. Privacy shifts (GDPR in 2018, CCPA in 2020, and browser cookie deprecation) eroded third-party tracking, making first-party data precious. Simultaneously, e-commerce penetration surged (accelerated by COVID-19), giving retailers tens of millions of daily active users and billions of impressions to monetize. Finally, ML infrastructure commoditized: open-source frameworks (PyTorch, TensorFlow), vector databases (FAISS, ScaNN), and feature stores made it feasible for non-FAANG companies to build production-grade ad serving and ranking systems. By 2021, Amazon Ads exceeded $30B in annual revenue [4], Walmart Connect and Target's Roundel scaled rapidly, and grocery chains (Kroger Precision Marketing, Albertsons Media Collective) launched RMNs backed by offline purchase data.
 
@@ -63,7 +63,7 @@ When executed well, RMN ads enhance discovery rather than intrude. Sponsored Pro
 
 ### 1.3. How RMNs Differ from Traditional Ad Networks
 
-The architectural delta between RMNs and traditional third-party networks (Chapter 1) stems from vertical integration and first-party data ownership. **Table 2.1** summarizes the key differences:
+The architectural delta between RMNs and traditional third-party networks (**Chapter 1**) stems from vertical integration and first-party data ownership. **Table 2.1** summarizes the key differences:
 
 **Table 2.1: RMN vs. Traditional Ad Network Comparison**
 
@@ -119,13 +119,13 @@ Advertisers organize spending in a three-level hierarchy:
 
 This glossary provides brief definitions with forward references to detailed sections; for a comprehensive alphabetical reference covering all chapters, see the [glossary.md](./glossary.md).
 
-**Targeting (see Section 4.3 for details):**
+**Targeting (see **Section 4.3** for details):**
 - **Keywords**: Advertiser-specified terms matched against user search queries (exact/phrase/broad match)
 - **Audiences**: Target groups defined by boolean rules over user attributes (behavioral, demographic, transactional)
 - **Segments**: Static or dynamic groups of users sharing a characteristic (used for reporting breakdowns)
 - **Product targeting**: Ads target specific product pages (e.g., competitor conquest campaigns)
 
-**Bidding & Auctions (see Section 5.2 for details):**
+**Bidding & Auctions (see **Section 5.2** for details):**
 - **CPC (Cost Per Click)**: Advertiser pays only when user clicks the ad
 - **CPM (Cost Per Mille)**: Advertiser pays per 1,000 impressions
 - **eCPM (Effective CPM)**: Ranking metric combining bid and predicted engagement: `eCPM = bid × pCTR × 1000`
@@ -133,7 +133,7 @@ This glossary provides brief definitions with forward references to detailed sec
 - **Bidding strategies**: Manual CPC/CPM, Dynamic bidding, Auto-bidding (Target ROAS/CPA, Maximize conversions)
 - **Reserve price**: Minimum bid threshold to participate in auctions
 
-**Budgeting (see Section 5.3 for details):**
+**Budgeting (see **Section 5.3** for details):**
 - **Campaign budget**: Total spend limit (daily or lifetime)
 - **Budget pacing**: How spend is distributed over time (even pacing vs. frontload/backload)
 - **Shared budgets**: One budget pool shared across multiple campaigns
@@ -208,7 +208,7 @@ Advertisers organize spending into a three-level hierarchy (campaign → ad grou
 
 The platform translates objectives into bidding strategies: awareness campaigns bid on CPM (cost per thousand impressions), consideration campaigns on CPC (cost per click), and conversion campaigns on CPA or target ROAS. Forecasting tools use historical bid landscapes and competitive density to estimate reach and cost before launch.
 
-When an advertiser clicks "Launch Campaign," the backend validates inputs, writes campaign metadata to the database, and publishes a config update that ad-serving clusters pick up within seconds (Chapter 3 details the propagation path).
+When an advertiser clicks "Launch Campaign," the backend validates inputs, writes campaign metadata to the database, and publishes a config update that ad-serving clusters pick up within seconds (**Chapter 3** details the propagation path).
 
 ### 4.2. Creative Management: Ad Formats and Assets
 
@@ -219,7 +219,7 @@ RMNs support several ad formats, each with distinct creative requirements:
 - **Video Ads** — pre-roll or mid-roll in recipe videos, product demos, or streaming content. Served via VAST XML; quartile events (25/50/75/100%) measure engagement depth.
 - **Off-Site Placements** — display ads on external publishers using the retailer's first-party data, routed through DSP integrations and privacy-preserving clean rooms (hashed user IDs matched without exposing raw data).
 
-**Dynamic Creative Optimization (DCO)** personalizes creatives in real time, varying images, copy, or pricing based on user context and affinity. The bandit-based selection and reward-modeling pipelines behind DCO are covered in Chapter 9.
+**Dynamic Creative Optimization (DCO)** personalizes creatives in real time, varying images, copy, or pricing based on user context and affinity. The bandit-based selection and reward-modeling pipelines behind DCO are covered in **Chapter 9**.
 
 ### 4.3. Targeting & Audience Strategy
 
@@ -239,7 +239,7 @@ Placement determines the page surface where ads render. Each type has different 
 
 Targeting mechanisms are independent of placement: they can be layered and combined across any surface:
 
-**Keyword targeting.** Advertisers bid on search queries via match types: exact ("laundry detergent"), phrase ("best laundry detergent brands"), and broad (expanded via embeddings/synonyms to "stain cleaning products"). Negative keywords exclude irrelevant traffic. Keyword targeting is primarily used on SRP placements but also applies to browse pages when the platform maps category navigation to implicit queries. The retrieval system that resolves these matches at serving time is built in Chapter 5.
+**Keyword targeting.** Advertisers bid on search queries via match types: exact ("laundry detergent"), phrase ("best laundry detergent brands"), and broad (expanded via embeddings/synonyms to "stain cleaning products"). Negative keywords exclude irrelevant traffic. Keyword targeting is primarily used on SRP placements but also applies to browse pages when the platform maps category navigation to implicit queries. The retrieval system that resolves these matches at serving time is built in **Chapter 5**.
 
 **Audience targeting.** Audiences are defined by boolean rules over first-party attributes: behavioral ("searched running shoes in past 7 days AND didn't purchase"), transactional ("purchased competitor brand 3+ times in 90 days"), or predictive ("propensity > 50% to purchase in category X this week"). At serve time the ad server evaluates these rules against user features fetched from a feature store. Audience targeting works on *every* placement type: it can narrow SRP ads to high-value users, power display banners on the homepage, or define off-site retargeting segments. Advertisers never see user-level data, only aggregate audience sizes and campaign metrics. For predictive audience construction using ML models, see [ch10_predictive_audiences.md](./ch10_predictive_audiences.md).
 
@@ -269,7 +269,7 @@ Once campaigns are live, three subsystems execute them in real time: budget cont
 
 ### 5.1. Budget Management
 
-Budgets come in several flavors: daily, lifetime, ad-group-level, and shared (one pool across multiple campaigns). The core engineering challenge is **pacing**: distributing spend over the day to maximize value without early exhaustion or late under-delivery. Chapter 7 builds three progressively sophisticated approaches: probabilistic throttling (randomly drop auctions to hit a target spend rate; Ch 7 §3.2), PID-based feedback control (adjust participation rate based on the gap between actual and target spend curves; Ch 7 §3.3), and **shadow-price bid shading** (compute the opportunity cost of each dollar spent via Lagrangian duality, then shade bids downward so the campaign spends exactly its budget on the highest-value impressions; Ch 7 §4). Shadow pricing is particularly important for auto-bidding campaigns, where the platform (not the advertiser) controls per-auction bids.
+Budgets come in several flavors: daily, lifetime, ad-group-level, and shared (one pool across multiple campaigns). The core engineering challenge is **pacing**: distributing spend over the day to maximize value without early exhaustion or late under-delivery. **Chapter 7** builds three progressively sophisticated approaches: probabilistic throttling (randomly drop auctions to hit a target spend rate; Ch 7 §3.2), PID-based feedback control (adjust participation rate based on the gap between actual and target spend curves; Ch 7 §3.3), and **shadow-price bid shading** (compute the opportunity cost of each dollar spent via Lagrangian duality, then shade bids downward so the campaign spends exactly its budget on the highest-value impressions; Ch 7 §4). Shadow pricing is particularly important for auto-bidding campaigns, where the platform (not the advertiser) controls per-auction bids.
 
 ### 5.2. Bidding and Auctions
 
@@ -278,7 +278,7 @@ Each page load triggers a real-time auction. Ads rank by **eCPM** to balance adv
 - **CPM campaigns:** `eCPM = CPM_bid` (bid directly in cost-per-mille)
 - **Value-based campaigns (target ROAS):** `eCPM = pCVR × expected_order_value × 1000`
 
-RMNs predominantly use **generalized second-price (GSP)** auctions: the winner pays just enough to beat the next-highest competitor, encouraging truthful bidding. A reserve price (bid floor) excludes low-quality ads. Chapter 4 details adjusted eCPM ranking, quality scores, GSP pricing mechanics, and cost-tracking infrastructure.
+RMNs predominantly use **generalized second-price (GSP)** auctions: the winner pays just enough to beat the next-highest competitor, encouraging truthful bidding. A reserve price (bid floor) excludes low-quality ads. **Chapter 4** details adjusted eCPM ranking, quality scores, GSP pricing mechanics, and cost-tracking infrastructure.
 
 **Bidding strategies** differ in who controls the bid and what the platform optimizes for. The choice is tightly coupled to campaign objective:
 
@@ -296,17 +296,17 @@ RMNs predominantly use **generalized second-price (GSP)** auctions: the winner p
 The key distinction between **dynamic bidding** and **auto-bidding** is control:
 
 - **Dynamic bidding** is a *bid modifier* on top of the advertiser's manual bid. The advertiser sets a base CPC (say $1.20); the platform scales it up or down per-auction based on real-time conversion signals (e.g., Amazon's "dynamic bids – up and down" [5] multiplies the base bid by up to 100% for high-likelihood impressions, or reduces it for low-likelihood ones). The advertiser retains control over the bid anchor and the maximum spend per click.
-- **Auto-bidding** removes the per-auction bid entirely. The advertiser specifies a business constraint (target CPA [1], target ROAS [3], or "maximize conversions within budget" [2]), and the platform's bid optimizer computes the optimal bid for every auction to satisfy that constraint over the campaign's lifetime. This requires real-time pCVR models, a budget-pacing controller, and tight serving-to-training feedback loops (Chapters 6 and 7). Auto-bidding is standard in Google Ads and emerging in RMNs.
+- **Auto-bidding** removes the per-auction bid entirely. The advertiser specifies a business constraint (target CPA [1], target ROAS [3], or "maximize conversions within budget" [2]), and the platform's bid optimizer computes the optimal bid for every auction to satisfy that constraint over the campaign's lifetime. This requires real-time pCVR models, a budget-pacing controller, and tight serving-to-training feedback loops (**Chapters 6 and 7**). Auto-bidding is standard in Google Ads and emerging in RMNs.
 
 ### 5.3. Campaign Optimization Strategies
 
-Advertisers monitor dashboards for pacing, CTR trends, and segment-level ROAS, and make in-flight adjustments: raising bids on high-performing keywords, pausing low-CTR creatives, reallocating budget to winning ad groups, and expanding audiences via lookalike models. Auto-bidding and DCO systems (Chapters 7 and 8) automate many of these levers; A/B testing creatives with proper randomization validates changes before scaling them.
+Advertisers monitor dashboards for pacing, CTR trends, and segment-level ROAS, and make in-flight adjustments: raising bids on high-performing keywords, pausing low-CTR creatives, reallocating budget to winning ad groups, and expanding audiences via lookalike models. Auto-bidding and DCO systems (**Chapters 7 and 8**) automate many of these levers; A/B testing creatives with proper randomization validates changes before scaling them.
 
 ---
 
 ## 6. Measurement and Attribution
 
-Measurement closes the advertiser lifecycle loop introduced in Section 3. RMNs' deterministic attribution, where every event (impression, click, purchase) is logged under the same first-party user ID, enables same-day ROAS reporting and causal inference that traditional networks cannot match. Chapter 12 covers the engineering infrastructure (event joining, attribution pipelines, reporting) end to end; Chapter 14 covers the analytical methods (incrementality experimentation, bid landscapes, media mix modeling); this section defines the key concepts.
+Measurement closes the advertiser lifecycle loop introduced in Section 3. RMNs' deterministic attribution, where every event (impression, click, purchase) is logged under the same first-party user ID, enables same-day ROAS reporting and causal inference that traditional networks cannot match. **Chapter 12** covers the engineering infrastructure (event joining, attribution pipelines, reporting) end to end; Chapter 14 covers the analytical methods (incrementality experimentation, bid landscapes, media mix modeling); this section defines the key concepts.
 
 ### 6.1. Core Metrics
 
@@ -332,7 +332,7 @@ Measurement closes the advertiser lifecycle loop introduced in Section 3. RMNs' 
 
 The gold standard for causal measurement is **holdout experiments**: randomly withhold ads from a control group and measure lift. Geo experiments (test vs. matched control markets) reduce spillover and are essential for measuring offline impact. PSA controls (showing neutral ads to the control group) isolate the effect of the specific ad message versus the mere presence of any ad.
 
-Most RMNs run internal incrementality studies but do not yet expose self-serve experimentation tools to advertisers, a significant gap compared to mature platforms like Google Campaign Experiments. Chapter 14 covers holdout design, geo experiments, and causal lift estimation in detail.
+Most RMNs run internal incrementality studies but do not yet expose self-serve experimentation tools to advertisers, a significant gap compared to mature platforms like Google Campaign Experiments. **Chapter 14** covers holdout design, geo experiments, and causal lift estimation in detail.
 
 ### 6.4. Closing the Loop
 
@@ -351,7 +351,7 @@ This chapter introduced the retail media network ecosystem from the advertiser's
 We walked through the advertiser lifecycle (Planning → Execution → Measurement) and mapped the platform's core components (campaign management, creative management, targeting, bidding/budgeting, ad serving, reporting). Each component presents engineering challenges that subsequent chapters will address.
 
 **Transition to Chapter 3:**  
-We have surveyed the RMN landscape. Now we build it. Chapter 3 dives into **ad serving architecture**, the real-time system that stitches together retrieval, ranking, auctions, and creative assembly to serve ads in milliseconds. We will design the service topology (load balancers, server clusters, caching layers), define SLAs (latency percentiles, availability), implement multi-stage ranking pipelines, and instrument monitoring/alerting to detect and mitigate failures. The advertiser's simple click on "Launch Campaign" triggers a cascade of low-level systems engineering; Chapter 3 shows you how to build those systems to scale, survive, and satisfy latency budgets that leave no room for error.
+We have surveyed the RMN landscape. Now we build it. **Chapter 3** dives into **ad serving architecture**, the real-time system that stitches together retrieval, ranking, auctions, and creative assembly to serve ads in milliseconds. We will design the service topology (load balancers, server clusters, caching layers), define SLAs (latency percentiles, availability), implement multi-stage ranking pipelines, and instrument monitoring/alerting to detect and mitigate failures. The advertiser's simple click on "Launch Campaign" triggers a cascade of low-level systems engineering; **Chapter 3** shows you how to build those systems to scale, survive, and satisfy latency budgets that leave no room for error.
 
 ---
 
