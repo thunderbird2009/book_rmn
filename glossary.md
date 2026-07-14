@@ -41,6 +41,8 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Ad Index (AdIndex)** — A data structure that stores and indexes all active ad candidates for fast retrieval during ad serving. Typically built on inverted indices with support for real-time updates. (Ch 3, Ch 5, Ap 1)
 
+**Ad Rank** — In generalized second-price (GSP) auctions, the product of an advertiser's bid and Quality Score: `Ad Rank = bid × Quality Score`. Determines both the ad's position and, via the runner-up's Ad Rank, the minimum price needed to win. (Ch 1)
+
 **Ad Server** — The central service that orchestrates the real-time ad request pipeline: receiving a request, calling retrieval and scoring services, running the auction, selecting the winner, assembling the creative, and logging the event. (Ch 3)
 
 **ANN (Approximate Nearest Neighbor)** — A family of algorithms that find approximate (rather than exact) nearest neighbors in high-dimensional vector spaces, trading a small amount of recall for orders-of-magnitude speedup. Key implementations include FAISS, ScaNN, and HNSW. (Ch 5, Ap 1)
@@ -144,6 +146,8 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 ## F
 
 **FAISS (Facebook AI Similarity Search)** — An open-source library for efficient similarity search and clustering of dense vectors. Supports multiple index types (IVF, PQ, HNSW) for ANN retrieval at scale. (Ch 5, Ap 1)
+
+**Feature Hashing** — A technique (the "hashing trick") that maps categorical feature strings directly to a fixed-size bucket space via a hash function, avoiding the need to maintain explicit vocabularies for high-cardinality categorical and cross features. Enables compact, collision-tolerant sparse models at scale. (Ch 1)
 
 **Feature Store** — A centralized system for storing, managing, and serving pre-computed features for ML models. Provides both batch features (for training) and low-latency online features (for inference). (Ch 3, Ch 6)
 
