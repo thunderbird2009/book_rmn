@@ -2,7 +2,7 @@
 
 ## Why This Book
 
-I worked on Google Display Ads from 2010 to 2015, focusing on data engineering and machine learning pipelines for CTR/CVR prediction and bid landscapes. At the time, logistic regression with FTRL-Proximal, inverted-index retrieval, and nightly batch ETL were the state of the art—and they worked remarkably well. Those systems served billions of ads per day with single-digit-millisecond scoring latency, and the lessons from that era—calibration discipline, online learning, careful data pipelines—remain foundational.
+I worked on Google Display Ads from 2010 to 2015, focusing on data engineering and machine learning pipelines for CTR/CVR prediction and bid landscapes. At the time, logistic regression with FTRL-Proximal, inverted-index retrieval, and nightly batch ETL were the state of the art, and they worked remarkably well. Those systems served billions of ads per day with single-digit-millisecond scoring latency, and the lessons from that era—calibration discipline, online learning, careful data pipelines—remain foundational.
 
 Over the past year I revisited how modern ad stacks are implemented, especially the AI/ML components, and the distance traveled was staggering. Deep learning, semantic embeddings, transformer-based architectures, and generative AI have fundamentally reshaped every stage of the pipeline: retrieval, ranking, creative optimization, and measurement.
 
@@ -24,7 +24,7 @@ The book follows the natural architecture of an RMN ad-serving platform, moving 
 
 - **Chapter 1: Traditional Ad Network Architecture** covers the display and search ad systems of the 2010–2015 era—inverted-index retrieval, logistic regression CTR models, FTRL-Proximal optimization, GSP auctions, CVR modeling, bid landscapes, and batch data pipelines. This is the technical "before" picture that the rest of the book builds upon.
 
-- **Chapter 2: The Retail Media Network Ecosystem** defines what RMNs are, why they emerged, and what makes them architecturally distinct from traditional networks. It maps the domain—campaign hierarchies, targeting types, bidding mechanics, measurement—so that engineering decisions in later chapters are grounded in business context.
+- **Chapter 2: Retail Media Networks: Systems and Workflows** defines what RMNs are, why they emerged, and what makes them architecturally distinct from traditional networks. It maps the domain—campaign hierarchies, targeting types, bidding mechanics, measurement—so that engineering decisions in later chapters are grounded in business context.
 
 **Part II — Core Serving Stack** builds the real-time ad-serving pipeline end to end:
 
@@ -50,11 +50,11 @@ The book follows the natural architecture of an RMN ad-serving platform, moving 
 
 - **Chapter 11: Ad Fraud Detection and Prevention** builds the multi-layer fraud defense system—rule-based filters, behavioral analysis, ML scoring, device fingerprinting, and advertiser refund workflows.
 
-- **Chapter 12: Measurement Infrastructure and Attribution** engineers the event-joining, attribution, and reporting infrastructure that closes the feedback loop between ad serving and campaign performance.
+- **Chapter 12: Measurement and Attribution** engineers the event-joining, attribution, and reporting infrastructure that closes the feedback loop between ad serving and campaign performance.
 
 - **Chapter 13: Privacy, Governance & Identity Resolution** implements privacy-preserving identity resolution, consent management, differential privacy for aggregate reporting, and compliance monitoring.
 
-- **Chapter 14: Advertiser Measurement Analytics** covers the analytical methods that sit on top of the measurement infrastructure — incrementality experiments, bid landscape forecasting via survival analysis, and media mix modeling — giving advertisers the tools to evaluate and optimize their RMN investment.
+- **Chapter 14: Advertiser Analytics** covers the analytical methods that sit on top of the measurement infrastructure — incrementality experiments, bid landscape forecasting via survival analysis, and media mix modeling — giving advertisers the tools to evaluate and optimize their RMN investment.
 
 **Part V — Appendices** provides deep technical references for practitioners:
 

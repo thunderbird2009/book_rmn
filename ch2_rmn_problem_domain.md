@@ -1,4 +1,4 @@
-# Chapter 2: The Retail Media Network (RMN) Ecosystem
+# Chapter 2: Retail Media Networks: Systems and Workflows
 
 Retail media networks represent a fundamental architectural shift in digital advertising. Unlike traditional third-party ad networks (**Chapter 1**), which relied on cookie-based targeting and probabilistic attribution, RMNs exploit **vertical integration**: the retailer owns the e-commerce site, tracks shopper behavior through first-party data, and measures advertising effectiveness with deterministic closed-loop attribution. This integration changes everything: retrieval strategies, ranking objectives, measurement infrastructure, and privacy controls. It also introduces new engineering challenges at the intersection of e-commerce, ML systems, and real-time serving.
 

@@ -1,10 +1,12 @@
-# Retail Media Networks: Engineering AI-Native Advertising Platforms
+# Building AI-Powered Ad Systems
+
+*A Practical Guide to Machine Learning and Engineering for Retail Media Networks*
 
 This repository contains selected chapters and code examples from a comprehensive guide on engineering Retail Media Networks (RMNs).
 
 ## About the Author
 
-**Michael Lei** is a seasoned engineer with 15+ years of experience in Internet Search/Ads, Machine Learning/AI, and Distributed Systems. Key roles include founding member of Google's TeraGoogle project (recognized with Google Founders Award), tech lead on multiple data and machine learning projects in Google Display Ads, and delivering core technology products at eBay, Appen, Meta and Coupang. Holds multiple patents in Internet Ads and Content Recommendations.
+**Ming (Michael) Lei** is a seasoned engineer with 15+ years of experience in Internet Search/Ads, Machine Learning/AI, and Distributed Systems. He currently serves as Technical Fellow at Walmart Global Tech, working on Walmart Connect, Walmart's retail media network. Key roles include founding member of Google's TeraGoogle project (recognized with Google Founders Award), tech lead on multiple data and machine learning projects in Google Display Ads, and delivering core technology products at eBay and Meta. Holds multiple patents in Internet Ads and Content Recommendations.
 
 ## About the Book
 Retail Media Networks represent a fundamental shift in digital advertising, leveraging first-party retailer data to deliver highly relevant ads with deterministic attribution. This book explores the engineering architecture, machine learning systems, and real-time decisioning engines required to build a production-grade RMN.
@@ -16,7 +18,7 @@ This repository currently hosts the following chapters for public access:
 
 - **[Preface](preface.md)**
   - Overview of the book's motivation, target audience, and organization.
-- **[Chapter 2: The Retail Media Network Ecosystem](ch2_rmn_problem_domain.md)**
+- **[Chapter 2: Retail Media Networks: Systems and Workflows](ch2_rmn_problem_domain.md)**
   - Defines what RMNs are, why they emerged, and what makes them architecturally distinct from traditional networks. Maps the domain—campaign hierarchies, targeting types, bidding mechanics, measurement—so that engineering decisions in later chapters are grounded in business context.
 - **[Chapter 5: Ads Retrieval](ch5_ads_retrieval.md)**
   - Technical deep dive into candidate generation strategies, indexing systems (inverted indices, embedding-based retrieval), approximate nearest neighbor search, multi-stage retrieval pipelines, and lightweight scoring models for efficient candidate ranking.
@@ -54,9 +56,9 @@ The complete work includes:
 
 **Part IV — Trust, Measurement & Governance**
 - Ch 11: Ad Fraud Detection and Prevention
-- Ch 12: Measurement Infrastructure and Attribution
+- Ch 12: Measurement and Attribution
 - Ch 13: Privacy, Governance & Identity Resolution
-- Ch 14: Advertiser Measurement Analytics
+- Ch 14: Advertiser Analytics
 
 **Part V — Appendices**
 - Appendix 1: AdIndex System Implementation
