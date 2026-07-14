@@ -39,8 +39,8 @@ Practical implementations and experiments are available in the [`code/`](https:/
 The complete work includes:
 
 **Part I — Foundations**
-- Ch 1: Traditional Ad Networks
-- Ch 2: The RMN Problem Domain (Public Access)
+- Ch 1: Traditional Ad Network Architecture
+- Ch 2: Retail Media Networks: Systems and Workflows (Public Access)
 
 **Part II — Core Serving Stack**
 - Ch 3: Ad Serving Architecture
@@ -50,7 +50,7 @@ The complete work includes:
 - Ch 7: Budget Pacing & Spend Control
 
 **Part III — Media Planning & Optimization**
-- Ch 8: Automated Creative Generation
+- Ch 8: Automated Creative Generation & Governance
 - Ch 9: Creative Selection and Learning
 - Ch 10: Predictive Audiences
 
