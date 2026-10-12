@@ -1,20 +1,10 @@
 # Chapter 5: Ads Retrieval
 
-We presented the overall Ads serving pipeline in Chapter 3, where we established that the Ad Index (AdSvc) must retrieve relevant ad candidates from millions of possibilities within brutal latency constraints. This chapter zooms into the **Ads Retrieval** step, addressing a fundamental challenge: **How do you find relevant ads from millions of candidates in under 15 milliseconds?**
+We introduced the ad serving pipeline in **Chapter 3**, where the AdServer orchestrates retrieval, scoring, and auction stages under a strict end-to-end latency budget. This chapter zooms into the retrieval step performed by the **AdIndex**, the system responsible for narrowing millions of candidate ads down to the few hundred that reach full ranking, all within a latency budget tight enough that the entire operation must complete in single-digit to low double-digit milliseconds.
 
-Ads retrieval consists of two critical stages:
+Ads retrieval breaks into two stages that AdIndex executes for every request. The first stage, candidate generation, runs **boolean-targeting-based matching** (**Section 1**) and **embedding-based semantic retrieval** (**Section 2**) in parallel and then merges their outputs; together they narrow roughly 10 million ads down to 500-1,000 candidates. The second stage, **preliminary scoring** (**Section 3**), applies lightweight scoring functions over precomputed features, far cheaper than the full CTR/CVR models used at auction time in Chapters 3 and 4, to cut that set further to the 200-500 candidates that move on to full ranking.
 
-1. **Recall/Matching (Candidate Generation)**: Narrow 10M ads → 500-1000 candidates through targeting-based matching and semantic similarity.
-2. **Preliminary Scoring**: Fast scoring of candidates using lightweight features and computations before expensive full scoring that involves looking up external features and complex scoring models. In Chapters 3 and 4, such full scoring is performed in AdServer at the time of auction.
-
-Traditional form of ads targeting is essentially a boolean expression of criteria. But we have seen new targeting forms of implicit semantics, like targeting at a product (sometimes the subject product of the Ad). Semantic targeting requires methods of semantic similarity. Some ads use combination of boolean targeting and semantic targeting.
-
-Semantic similarity is not only required for semantic targeting, but also often used to augment boolean targeting or serves as part of preliminary scoring to quickly filter down a large result set.
-
-**The complete retrieval pipeline**:
-1. **Boolean-targeting-based matching** (Section 1): Inverted index queries match ads to user/context based on targeting rules → 100K-1M eligible ads
-2. **Semantic similarity** (Section 2): Vector embeddings + ANN search for personalization → Top 500-1000 semantically relevant ads
-3. **Preliminary scoring** (Section 4): Lightweight scoring using dot products, bids, quality scores → Top 200-500 for full ranking
+Traditional ad targeting is essentially a boolean expression over criteria such as geography, device, and keywords. More recent targeting forms rely on implicit semantics instead, such as targeting the product a user is currently viewing rather than a keyword an advertiser explicitly bid on; these require a notion of semantic similarity that a boolean expression cannot capture directly. Many ads combine both forms, and semantic similarity turns out to be useful well beyond semantic targeting itself: it also augments boolean targeting and drives part of preliminary scoring, where a fast approximate signal is enough to prune a large candidate set before more expensive scoring runs.
 
 ---
 <details>
@@ -73,7 +63,7 @@ An inverted index is a popular abstraction for support boolean-expresson based r
 
 ### 1.1. Inverted Index Fundamentals
 
-An **inverted index** is a data structure that enables efficient full-text search by mapping terms to the documents that contain them. Let's start with a simple non-ad example.
+An **inverted index** is a data structure that enables efficient full-text search by mapping terms to the documents that contain them. We start with a simple non-ad example.
 
 #### 1.1.1. Document Model: Fields and Values
 
@@ -98,16 +88,16 @@ Each field can be configured with three independent properties:
 
 **Field configuration examples**:
 
-**Table 5.2: Field Configuration Examples**
+**Table 5.1: Field Configuration Examples**
 
 | Field | Stored? | Indexed? | Tokenized? | Purpose |
 |-------|---------|----------|------------|---------|
-| `doc_id` | ✅ Yes | ✅ Yes | ❌ No | Unique identifier (stored as atomic term) |
-| `title` | ✅ Yes | ✅ Yes | ✅ Yes | Full-text search + display |
-| `author` | ✅ Yes | ✅ Yes | ❌ No | Exact name matching + display |
-| `category` | ✅ Yes | ✅ Yes | ❌ No | Category filtering (stored as atomic term) |
-| `publish_date` | ✅ Yes | ✅ Yes | ❌ No | Range queries (numeric/date) |
-| `body` | ❌ No | ✅ Yes | ✅ Yes | Full-text search only (not returned in results) |
+| `doc_id` | Yes | Yes | No | Unique identifier (stored as atomic term) |
+| `title` | Yes | Yes | Yes | Full-text search + display |
+| `author` | Yes | Yes | No | Exact name matching + display |
+| `category` | Yes | Yes | No | Category filtering (stored as atomic term) |
+| `publish_date` | Yes | Yes | No | Range queries (numeric/date) |
+| `body` | No | Yes | Yes | Full-text search only (not returned in results) |
 
 #### 1.1.2. Tokenization and Position Tracking
 
@@ -127,10 +117,9 @@ Each field can be configured with three independent properties:
    - `"marathon"` at position 3
    - `"training"` at position 4
 
-**Why positions matter?**
+**Why positions matter**
 
-- **Without positions**: Can only check if term exists (e.g., does document contain "running"?)
-- **With positions**: Can perform phrase queries (e.g., does document contain "running shoes" as a phrase?)
+Without positions, the index can only check whether a term exists, such as whether a document contains "running." With positions recorded, the index can also perform phrase queries, such as whether a document contains "running shoes" as an exact phrase.
 
 **Field configuration for position tracking**:
 
@@ -179,10 +168,7 @@ Author index (non-tokenized):
    - Phrase check: "marathon training" in `post_42`? ✅ Yes (positions 3, 4 in `title`)
    - Result: Match
 
-**Key insight**: The inverted index enables **sub-millisecond lookups** because:
-- Term lookups are O(1) hash table operations
-- Posting lists are compressed and cached
-- Position checking is a simple integer comparison
+The inverted index enables sub-millisecond lookups because term lookups are O(1) hash table operations, posting lists are compressed and cached, and position checking reduces to a simple integer comparison.
 
 ---
 
@@ -190,7 +176,7 @@ Author index (non-tokenized):
 
 Now we apply inverted index concepts to ad retrieval, which is a more complex use case than conventional document search. Ad retrieval is conceptually a **"reversed search"**: an ad's targeting criteria is like a Boolean query that should match incoming user requests. To implement this efficiently at scale, we take a reversed view, treating ad targeting criteria as indexed documents and user requests as queries.
 
-The key challenge: **each ad has its own Boolean expression structure**. We cannot use a traditional "ad-as-document" model because we'd need to express every ad's unique Boolean logic in a single query.
+The key challenge: **each ad has its own Boolean expression structure**. We cannot use a traditional "ad-as-document" model because we would need to express every ad's unique Boolean logic in a single query.
 
 #### 1.2.1. The Challenge: Heterogeneous Boolean Expressions
 
@@ -202,7 +188,7 @@ Advertisers specify targeting using Boolean expressions with varying structures:
 
 **Ad_789**: `(exact_kw: "marathon training" AND geo: "UK") OR audience: "fitness_enthusiasts"`
 
-These ads have **different Boolean structures**. A traditional "ad-as-document" index cannot efficiently handle heterogeneous Boolean expressions across millions of ads; we'd need a different query for each ad's unique targeting logic.
+These ads have **different Boolean structures**. A traditional "ad-as-document" index cannot efficiently handle heterogeneous Boolean expressions across millions of ads; we would need a different query for each ad's unique targeting logic.
 
 #### 1.2.2. The Solution: DNF Normalization + Criterion-Level Indexing
 
@@ -210,10 +196,11 @@ The solution has two parts:
 
 **Part 1: Normalize targeting to Disjunctive Normal Form (DNF)**
 
-Any Boolean expression can be transformed to **disjunction-of-conjunctions**:
-$$\text{AdTargeting} \iff \bigvee_{i=1}^{n} \left( \bigwedge_{j=1}^{m_i} \text{criterion}_{i,j} \right)$$
+Any Boolean expression can be transformed to a **disjunction-of-conjunctions**, shown in **Equation 5.1**:
 
-**In plain terms**: An ad matches if **at least one targeting rule** matches, where each rule requires **all its criteria** to be satisfied.
+$$\text{AdTargeting} \iff \bigvee_{i=1}^{n} \left( \bigwedge_{j=1}^{m_i} \text{criterion}_{i,j} \right) \tag{5.1}$$
+
+In plain terms, an ad matches if at least one targeting rule matches, where each rule requires all of its criteria to be satisfied.
 
 **Example - Ad_123 targeting** (keyword OR expansion):
 ```
@@ -260,20 +247,20 @@ This enables **criterion-level matching**: when a request arrives, we find all c
 
 Different criterion types have different matching semantics:
 
-**Table 5.3: Targeting Criteria Types**
+**Table 5.2: Targeting Criteria Types**
 
 | Criterion Type | Description | Tokenized? | Positions? | Example |
 |----------------|-------------|------------|------------|---------|
-| `exact_kw` | Exact keyword match | ❌ No | ❌ No | "nike running shoes" |
-| `phrase_kw` | Phrase match (order matters) | ✅ Yes | ✅ Yes | "running shoes" |
-| `broad_kw` | Broad match (any token) | ✅ Yes | ❌ No | "athletic footwear" |
-| `neg_kw` | Negative keyword (exclusion) | ❌ No | ❌ No | "used" |
-| `geo` | Geographic targeting | ❌ No | ❌ No | "US", "CA" |
-| `device` | Device type | ❌ No | ❌ No | "mobile", "tablet" |
-| `audience` | User segment | ❌ No | ❌ No | "fitness_enthusiasts" |
+| `exact_kw` | Exact keyword match | No | No | "nike running shoes" |
+| `phrase_kw` | Phrase match (order matters) | Yes | Yes | "running shoes" |
+| `broad_kw` | Broad match (any token) | Yes | No | "athletic footwear" |
+| `neg_kw` | Negative keyword (exclusion) | No | No | "used" |
+| `geo` | Geographic targeting | No | No | "US", "CA" |
+| `device` | Device type | No | No | "mobile", "tablet" |
+| `audience` | User segment | No | No | "fitness_enthusiasts" |
+| `category` | Product/page category | No | No | "electronics" |
 
-> **Note**: Audience segments are constructed using rule-based or ML-driven approaches. For predictive audience modeling (propensity, lookalikes, LTV), see [Chapter 10](ch10_predictive_audiences.md).
-| `category` | Product/page category | ❌ No | ❌ No | "electronics" |
+Audience segments are constructed using rule-based or ML-driven approaches; **Chapter 10** covers predictive audience modeling (propensity, lookalikes, LTV) in depth.
 
 **Key distinctions** (connecting back to Section 1.1):
 - **Exact keywords**: Not tokenized; the entire string "nike running shoes" is indexed as a single atomic term
@@ -362,36 +349,21 @@ Tokenize → ["running"₀, "shoes"₁]
 
 #### 1.2.5. Why This Model Works
 
-**Key advantages**:
+Criterion-level indexing works well for four connected reasons. It handles heterogeneous Boolean expressions because each ad's unique targeting logic lives in its rule structure rather than in query syntax, so no single query template has to express every ad's logic. Retrieval stays efficient because inverted indices provide O(1) or O(log N) lookup from any criterion value to the set of criteria that need it. Matching logic stays simple: find all criteria that match the request, group them by `(ad_id, rule_id)`, and check whether any rule has all of its criteria matched, a procedure detailed fully in **Section 1.3**. And the model fits DNF naturally, since each conjunction (rule) is a self-contained unit, so evaluation reduces to a set intersection per rule followed by a union across rules. **Equation 5.2** states this formally:
 
-1. **Handles heterogeneous Boolean expressions**: Each ad's unique targeting logic is captured in its rule structure, not in query syntax
+$$\text{Ad matches} \iff \exists i: \left( \forall j \in \text{rule}_i: \text{criterion}_{i,j} \text{ matches request} \right) \tag{5.2}$$
 
-2. **Efficient retrieval**: Inverted indices provide O(1) or O(log N) lookup from any criterion value to the set of criteria that need it
+In words, an ad matches if there exists at least one rule where all of its criteria match the request.
 
-3. **Simple matching logic** (detailed in Section 1.3):
-   - Find all criteria that match the request
-   - Group by `(ad_id, rule_id)`
-   - Check if any rule has all its criteria matched → ad is eligible
+DNF expansion carries a trade-off: a Boolean expression like `(a OR b) AND (c OR d)` expands to 4 rules, and deeply nested OR clauses can inflate this count further. In practice this rarely bites, since most ad targeting uses only 1-3 rules per ad, and production systems cap the maximum rules per ad (commonly 10-20) to bound the blowup. The efficiency gained from criterion-level indexing far outweighs the resulting storage cost.
 
-4. **Natural fit for DNF**: Each conjunction (rule) is a self-contained unit; evaluation is just set intersection per rule + union across rules
-
-**Formal matching condition**:
-$$\text{Ad matches} \iff \exists i: \left( \forall j \in \text{rule}_i: \text{criterion}_{i,j} \text{ matches request} \right)$$
-
-**In words**: "An ad matches if there exists at least one rule where all criteria match the request."
-
-**Trade-off**: DNF expansion can create multiple rules per ad (e.g., `(a OR b) AND (c OR d)` → 4 rules), but in practice:
-- Most ad targeting is simple (1-3 rules per ad)
-- Systems limit maximum rules per ad (e.g., 10-20) to prevent blowup
-- The efficiency gains from criterion-level indexing far outweigh the storage cost
-
-**Next**: Section 1.3 will show how user requests are transformed into queries over these criterion indices, and how the matching algorithm efficiently evaluates rule satisfaction.
+**Section 1.3** shows how user requests are transformed into queries over these criterion indices, and how the matching algorithm efficiently evaluates rule satisfaction.
 
 ---
 
 ### 1.3. Query Construction and Matching Algorithm
 
-Now that we've indexed ad targeting as criterion documents (Section 1.2), we show how incoming user requests are matched against these criteria to find eligible ads.
+Now that we have indexed ad targeting as criterion documents (Section 1.2), we show how incoming user requests are matched against these criteria to find eligible ads.
 
 #### 1.3.1. From User Request to Criterion Queries
 
@@ -425,7 +397,7 @@ When a user request arrives, we extract attributes and construct queries for eac
 
 We query each criterion type index separately:
 
-**Table 5.4: Criterion Query Construction**
+**Table 5.3: Criterion Query Construction**
 
 | Criterion Type | Query Construction | Index Lookup |
 |----------------|-------------------|--------------|
@@ -508,7 +480,7 @@ Collect all ads that had at least one satisfied rule. These are the ads eligible
 
 #### 1.3.3. Concrete Example Walkthrough
 
-Let's trace the full matching process for our example request:
+We trace the full matching process for our example request:
 
 **Request**: `{query: "best nike running shoes", geo: "US", device: "mobile"}`
 
@@ -550,7 +522,7 @@ Grouping:
 - Required: {c5, c6, c7}
 - Matched: {c5, c6, c7}
 - All criteria matched ✅
-- Check negative keyword c8 ("used"): Query doesn't contain "used" ✅
+- Check negative keyword c8 ("used"): Query does not contain "used" ✅
 - **Result**: ✅ SATISFIED
 
 **Step 4: Result**
@@ -621,15 +593,15 @@ This is a **major optimization** for high-cardinality criteria that appear in ma
 
 The state-of-the-art method of measuring semantic similarity has evolved from data mining methods like collaborative filtering and traditional machine learning methods like dimension reduction, to embedding based. Embedding is a general and elegant way to transform a complex object into a small and dense vector, and the similarity defined on two embedding vectors is a natural and elegant way to represent semantic similarity between the corrsponding original objects. Deep learning approaches to semantic matching, such as Deep Structured Semantic Models (DSSM), have shown significant improvements in capturing query-document relevance [1]. 
 
-There are many good off-the-shelf embedding models, especially on text. Embedding models can also be trained or transfer-learned as layers of complex and sophisticated models for specific tasks in the subject problem domain. In chapter 6, we will present one of such complex model. Though we will focus on the engineering of vector similarity in this section.
+There are many good off-the-shelf embedding models, especially for text. Embedding models can also be trained or transfer-learned as layers of complex models built for specific tasks in the ads domain; **Chapter 6** presents one such model in depth. This section focuses instead on the engineering of vector similarity: how embeddings are represented, indexed, and searched at retrieval time.
 
 ### 2.1. Embedding vs. Boolean Retrieval: use cases and challenges
 
-**Table 5.5: Boolean vs. Embedding Retrieval Comparison**
+**Table 5.4: Boolean vs. Embedding Retrieval Comparison**
 
 | Aspect | Keyword-Only Retrieval (Boolean) | Embedding-Based Retrieval |
 |--------|----------------------------------|---------------------------|
-| **Synonyms & Paraphrasing** | ❌ Query `cheap flights` doesn't match ads targeting `discount airfare`, `budget travel`, `low-cost airlines` | ✅ Embeddings capture semantic similarity: `cheap flights` ≈ `discount airfare` in vector space |
+| **Synonyms & Paraphrasing** | ❌ Query `cheap flights` does not match ads targeting `discount airfare`, `budget travel`, `low-cost airlines` | ✅ Embeddings capture semantic similarity: `cheap flights` ≈ `discount airfare` in vector space |
 | **Semantic Intent** | ❌ Query `gift for mom` has no keyword overlap with `jewelry`, `flowers`, `spa vouchers` | ✅ Model learns semantic relationships: `gift` is related to gift categories |
 | **Personalization** | ❌ All users searching `running shoes` see same keyword matches (marathon vs. casual context ignored) | ✅ User context (demographics, history) influences query embedding → personalized results |
 | **Typos & Variations** | ❌ Query `nike runng shoes` fails exact match for `nike running shoes` | ✅ Similar phrases map to nearby points in embedding space (robust to variations) |
@@ -641,7 +613,7 @@ In addition to the above comparison between the two. They can also be combined f
 
 ### 2.2. Query and Ad Representation in Vector Space
 
-**Embedding generation** (high-level overview; details in [Appendix 2: Embedding Architectures](ap2_embeddings.md)):
+**Embedding generation** (high-level overview; details in **Appendix 2: Embedding Architectures for Sequential Features**):
 
 **Query embedding** $\vec{Q}$:
 - Encodes user request + context (search query, user demographics, session state)
@@ -658,7 +630,7 @@ In addition to the above comparison between the two. They can also be combined f
 
 **Similarity scoring**:
 
-$$\text{Relevance}(\text{query}, \text{ad}) = \vec{Q} \cdot \vec{A} \tag{5.1}$$
+$$\text{Relevance}(\text{query}, \text{ad}) = \vec{Q} \cdot \vec{A} \tag{5.3}$$
 
 Higher dot product → more semantically relevant.
 
@@ -695,12 +667,7 @@ Online (per request):
   → No duplicate computation, query_embedding used for both retrieval and ranking
 ```
 
-**Why this is fast**: 
-- **User/product embeddings** are pre-computed offline and cached in FeatureStore (fast Redis lookup)
-- **Ad embeddings** are pre-computed and indexed offline (no online computation)
-- **Query parsing + fusion happens once** in AdServer, reused for retrieval and ranking
-- **Online compute** per request: context encoding (2-5ms) + fusion (1ms) + ANN search (2-5ms) = ~5-10ms
-- AdServer centralizes feature preparation; AdIndex is pure retrieval engine
+This design is fast because most of the expensive computation happens offline: user and product embeddings are pre-computed and cached in FeatureStore for a fast Redis lookup, and ad embeddings are pre-computed and indexed entirely offline, with no online computation at all. Query parsing and embedding fusion happen once in AdServer and are reused for both retrieval and ranking, so the only work left at request time is context encoding (2-5ms), fusion (1ms), and ANN search (2-5ms), roughly 5-10ms in total. AdServer centralizes feature preparation, leaving AdIndex as a pure retrieval engine.
 
 ### 2.3. Approximate Nearest Neighbor (ANN) Search
 
@@ -728,7 +695,7 @@ Exact nearest neighbor search over 10M ad embeddings would require computing 10M
 - 4× memory reduction, enables searching larger indices in RAM
 - **Trade-off**: <1% recall drop for 4× speedup
 
-**Table 5.1: ANN Index Algorithm Comparison**
+**Table 5.5: ANN Index Algorithm Comparison**
 
 | Algorithm | Search Complexity | Recall@1000 | Memory (10M ads, 128-d) | Latency (10M ads) | Build Time | Best For |
 |-----------|------------------|-------------|-------------------------|-------------------|------------|----------|
@@ -739,10 +706,7 @@ Exact nearest neighbor search over 10M ad embeddings would require computing 10M
 
 *Note: Metrics measured on 128-dimensional embeddings, K=10,000 clusters for IVF, M=16 for HNSW. Latency on CPU (32 cores); GPU accelerates 2-3×.*
 
-**Typical configuration**:
-- Index: IVF + PQ (partitioned + compressed)
-- Search: Top-1000 candidates from 10M ads in **2-5ms**
-- Recall@1000: 90-95% (measured offline via relevance judgments)
+A typical production configuration combines IVF partitioning with PQ compression (**Table 5.5**), retrieving the top 1,000 candidates from 10 million ads in 2-3ms at 88-94% recall@1000, measured offline against relevance judgments.
 
 ### 2.4. Hybrid Retrieval: Combining Boolean and Semantic
 
@@ -750,19 +714,9 @@ Pure embedding retrieval can violate business rules (budget exhaustion, geo-targ
 
 #### 2.4.1. Why Hybrid is Necessary
 
-**Semantic-only retrieval risks**:
-- ❌ User searching `nike running shoes` might get semantically similar but irrelevant `adidas basketball` ads
-- ❌ Cannot enforce hard constraints: budget, geo, device compatibility
-- ❌ May miss advertiser's explicit keyword intent (they paid to target `nike shoes`)
+Semantic-only retrieval carries real risks: a user searching `nike running shoes` might retrieve a semantically similar but irrelevant `adidas basketball` ad, the system cannot enforce hard constraints like budget, geo, or device compatibility on similarity alone, and it may miss an advertiser's explicit keyword intent even when that advertiser paid specifically to target `nike shoes`. Boolean-only retrieval has the opposite gap: it misses semantically relevant ads that share no keyword overlap with the query, and it offers no personalization or contextual relevance beyond exact rule matching.
 
-**Boolean-only retrieval gaps**:
-- ❌ Misses semantically relevant ads without keyword overlap
-- ❌ No personalization or contextual relevance
-
-**Hybrid approach** combines strengths:
-- ✅ Boolean retrieval ensures **intent alignment** and **business rule compliance**
-- ✅ Semantic retrieval adds **generalization** and **personalization**
-- ✅ Intersection/union yields high-quality, policy-compliant candidates
+A hybrid approach combines the strengths of both. Boolean retrieval ensures intent alignment and business-rule compliance, semantic retrieval adds generalization and personalization, and combining the two, whether by intersection or union, yields a candidate set that is both high-quality and policy-compliant.
 
 #### 2.4.2. Hybrid Architecture Patterns
 
@@ -889,24 +843,13 @@ After Boolean retrieval (Section 1) and semantic retrieval (Section 2) produce 5
 
 #### 3.1.1. Dot Product Similarity (for semantic retrieval)
 
-The simplest scoring function reuses the **dot product** already computed during ANN retrieval:
-
-$$\text{Score}_{\text{semantic}} = \vec{Q} \cdot \vec{A} \tag{5.2}$$
-
-**Advantages**:
-- **Zero additional cost**: Similarity is already computed by ANN search
-- **Personalized**: Incorporates user context via query embedding
-- **Effective**: Correlates well with relevance
-
-**Limitations**:
-- Ignores business factors (bid, budget, historical performance)
-- Cannot differentiate between ads with similar embeddings
+The simplest scoring function reuses the dot product already computed during ANN retrieval, the same relevance score defined in **Equation 5.3**, at zero additional cost. Because the query embedding already encodes user context, this score is inherently personalized and correlates well with relevance. Its limitation is that it ignores business factors such as bid, budget, and historical performance entirely, and it cannot differentiate between two ads whose embeddings both happen to sit close to the query.
 
 #### 3.1.2. Weighted Linear Combination
 
 Combine multiple pre-computed features with learned or heuristic weights:
 
-$$\text{PrelimScore} = \alpha \cdot (\vec{Q} \cdot \vec{A}) + \beta \cdot \text{Bid} + \gamma \cdot \text{HistoricalCTR} + \delta \cdot \text{QualityScore} \tag{5.3}$$
+$$\text{PrelimScore} = \alpha \cdot (\vec{Q} \cdot \vec{A}) + \beta \cdot \text{Bid} + \gamma \cdot \text{HistoricalCTR} + \delta \cdot \text{QualityScore} \tag{5.4}$$
 
 **Typical weights** (tuned offline):
 - $\alpha = 0.3$: Semantic relevance
@@ -928,7 +871,7 @@ Normalize each feature to [0, 1] range:
 
 Train a simple logistic regression model on historical data:
 
-$$\text{PrelimScore} = \sigma\left(\mathbf{w}^T \mathbf{x} + b\right) \tag{5.4}$$
+$$\text{PrelimScore} = \sigma\left(\mathbf{w}^T \mathbf{x} + b\right) \tag{5.5}$$
 
 Where feature vector $\mathbf{x}$ includes:
 - Dot product similarity: $\vec{Q} \cdot \vec{A}$
@@ -940,14 +883,11 @@ Where feature vector $\mathbf{x}$ includes:
 
 **Training**:
 - **Labels**: Click or conversion events from past requests
-- **Features**: Pre-computed values from Ad Index
+- **Features**: Pre-computed values from AdIndex
 - **Objective**: Maximize AUC or log-loss on historical data
 - **Refresh**: Retrain weekly or monthly
 
-**Advantages over linear combination**:
-- **Learned weights**: Automatically tuned from data
-- **Non-linear interactions**: Can include feature crosses (e.g., `bid × CTR`)
-- **Calibrated probabilities**: Output approximates pCTR
+Compared to the weighted linear combination, this approach learns its weights automatically from data rather than requiring manual tuning, can capture non-linear interactions through feature crosses such as `bid × CTR`, and produces calibrated probabilities that approximate pCTR directly rather than an arbitrary score.
 
 **Latency**: ~1ms (matrix-vector multiply for 500-1000 candidates)
 
@@ -1037,7 +977,7 @@ AdIndex is the **core Ad retrieval system** that integrates Boolean retrieval (S
 
 ### 4.1. System Architecture Overview
 
-**Figure 5.2: AdIndex System Architecture**
+**Figure 5.1: AdIndex System Architecture**
 
 ```mermaid
 flowchart TD
@@ -1080,7 +1020,7 @@ flowchart TD
 
 The following diagram shows how a single ad request flows through AdServer and AdIndex, illustrating how the three retrieval techniques from Sections 1-3 integrate:
 
-**Figure 5.1: AdIndex Query Processing Flow**
+**Figure 5.2: AdIndex Query Processing Flow**
 
 ```mermaid
 flowchart TB
@@ -1133,23 +1073,9 @@ flowchart TB
     style Parallel fill:#fff4e8
 ```
 
-**Key flow characteristics**:
+Query parsing and embedding fusion happen once in AdServer (3-8ms), and the resulting embeddings are reused by both AdIndex retrieval and downstream ranking in **Chapter 6**, eliminating duplicate computation. Inside AdIndex, Boolean and semantic retrieval run concurrently rather than sequentially, so total AdIndex latency is dominated by the slower of the two branches (roughly 5ms) rather than their sum. After merging the roughly 500-1,000 candidates from Boolean and semantic retrieval, lightweight scoring applies budget filters and preliminary ranking to select the top 200-500 for full ranking. End-to-end, this totals AdServer's 3-8ms plus AdIndex's 5-12ms, for 8-20ms overall against a target p99 latency under 25ms.
 
-- **One-time preprocessing in AdServer**: Query parsing and embedding fusion happen once (3-8ms), then embeddings are reused by both AdIndex (retrieval) and downstream ranking (Chapter 6). This eliminates duplicate computation.
-
-- **Parallel retrieval in AdIndex**: Boolean and semantic retrieval run concurrently (not sequentially), so total AdIndex latency is dominated by the slower of the two (~5ms), not their sum.
-
-- **Lightweight scoring as final filter**: After merging ~500-1K candidates from Boolean and semantic retrieval, lightweight scoring applies budget filters and preliminary ranking to select Top 200-500 for expensive full ranking.
-
-- **End-to-end latency**: AdServer (3-8ms) + AdIndex (5-12ms) = 8-20ms total, with target p99 < 25ms.
-
-**Architecture highlights**:
-
-- **Online Serving Layer**: Stateless AdIndex servers host indices in memory (inverted indices, ANN indices, metadata, features). Each server can handle 5-10K QPS with p99 < 25ms.
-
-- **Batch Processing**: Runs hourly/daily to compute embeddings (GPU clusters), build ANN indices (FAISS/ScaNN), and aggregate historical metrics (Spark). Outputs uploaded to distributed storage (S3/GCS).
-
-- **Near Real-Time Pipeline**: CDC streams from ad database (Kafka), normalizes targeting rules to DNF, updates inverted indices within 1-5 minutes.
+The three layers in **Figure 5.1** play distinct roles. The **online serving layer** consists of stateless AdIndex servers that host all indices in memory (inverted indices, ANN indices, metadata, and features); each server handles 5-10K QPS with p99 latency under 25ms. **Batch processing** runs hourly or daily to compute embeddings on GPU clusters, build ANN indices with FAISS or ScaNN, and aggregate historical metrics with Spark, uploading the outputs to distributed storage (S3/GCS). The **near real-time pipeline** consumes CDC streams from the ad database via Kafka, normalizes targeting rules to DNF, and updates inverted indices within 1-5 minutes.
 
 **Latency breakdown** (end-to-end):
 
@@ -1220,15 +1146,15 @@ AdIndex can be built with:
 - **Feast/Tecton**: Enterprise feature stores with lineage tracking
 - **In-process cache**: Fastest (no network), but limited to instance memory
 
-For detailed implementation guidance (including data models, query processing flows, replication topology, capacity planning, and monitoring strategies), see [Appendix 1: AdIndex System Implementation](ap1_adindex_implementation.md).
+For detailed implementation guidance (including data models, query processing flows, replication topology, capacity planning, and monitoring strategies), see **Appendix 1: AdIndex System Implementation**.
 
 ---
 
 ## Summary and Next Steps
 
-This chapter detailed the **AdIndex retrieval architecture**, a production-grade system that narrows 10 million ads to 200-500 high-quality candidates in under 15 milliseconds. We covered three core retrieval techniques working in concert: **Boolean retrieval** using criterion-level inverted indices with DNF rule evaluation to enforce targeting rules (keywords, geo, device, audience); **semantic retrieval** leveraging embedding-based similarity with pre-computed ad embeddings and ANN search (FAISS, ScaNN) for personalization; and **lightweight scoring** that combines dot product similarity, historical CTR, and bids to select top candidates for full ranking.
+This chapter detailed the **AdIndex retrieval architecture**, a production-grade system that narrows 10 million ads to 200-500 high-quality candidates in under 15 milliseconds. We covered three core retrieval techniques working in concert: **Boolean retrieval** using criterion-level inverted indices with DNF rule evaluation to enforce targeting rules (keywords, geo, device, audience); **semantic retrieval** using embedding-based similarity with pre-computed ad embeddings and ANN search (FAISS, ScaNN) for personalization; and **lightweight scoring** that combines dot product similarity, historical CTR, and bids to select top candidates for full ranking.
 
-The architectural design emphasizes separation of concerns. **AdServer handles query parsing and embedding fusion once**, then passes pre-computed embeddings to AdIndex, eliminating duplicate computation and saving 3-8ms per request. This separation also ensures consistency: the same parsing and fusion logic applies across retrieval and ranking stages, preventing train/serve skew. **Hybrid retrieval** balances business rules (Boolean filters) with personalization (semantic search), using intersection or union strategies to yield high-quality candidates. The system achieves massive scale through geographic sharding (US/EU/APAC), 3-tier load balancing, and careful capacity planning (15-25GB per 10M ads), supported by multi-AZ failover and hot index swapping for reliability.
+The architectural design emphasizes separation of concerns. **AdServer handles query parsing and embedding fusion once**, then passes pre-computed embeddings to AdIndex, eliminating duplicate computation and saving 3-8ms per request. This separation also ensures consistency: the same parsing and fusion logic applies across retrieval and ranking stages, preventing train/serve skew. **Hybrid retrieval** balances business rules (Boolean filters) with personalization (semantic search), using intersection or union strategies to yield high-quality candidates. The system achieves massive scale through hierarchical sharding by geography and campaign, and maintains freshness without downtime through atomic index swaps that load new ANN indices in the background before cutting traffic over.
 
 The **offline/online split** is fundamental to meeting latency budgets. User, product, and ad embeddings are pre-computed offline and cached in FeatureStore, limiting online computation to context encoding and ANN search. This design achieves sub-15ms retrieval latency. The system supports **multi-frequency updates**: real-time (<1s) for bids and budgets, near-real-time (1-5min) for Boolean indices, hourly for ANN indices, and daily for features. Integration with upstream and downstream systems is seamless: AdServer fetches user/product embeddings from FeatureStore (Chapter 3) before calling AdIndex, and the top 200-500 candidates from AdIndex feed into deep CTR/CVR models (Chapter 6), which reuse the query embeddings for interaction features.
 

@@ -9,33 +9,33 @@ This appendix provides technical foundations for embedding-based feature encodin
 <summary>Table of Contents</summary>
 
 - [1. Fundamentals of Neural Embeddings](#1-fundamentals-of-neural-embeddings)
-  - [1.1 What are Embeddings?](#11-what-are-embeddings)
-  - [1.2 Token ID Embeddings](#12-token-id-embeddings)
-  - [1.3 Training Embeddings](#13-training-embeddings)
-  - [1.4 Why Embeddings Matter for Ad Systems](#14-why-embeddings-matter-for-ad-systems)
-  - [1.5 Extension to Sequential Features](#15-extension-to-sequential-features)
+  - [1.1. What Embeddings Are](#11-what-embeddings-are)
+  - [1.2. Token ID Embeddings](#12-token-id-embeddings)
+  - [1.3. Training Embeddings](#13-training-embeddings)
+  - [1.4. Why Embeddings Matter for Ad Systems](#14-why-embeddings-matter-for-ad-systems)
+  - [1.5. Extension to Sequential Features](#15-extension-to-sequential-features)
 - [2. Sequential Embeddings for Text](#2-sequential-embeddings-for-text)
-  - [2.1 The Sequential Encoding Challenge](#21-the-sequential-encoding-challenge)
-  - [2.2 Three-Stage Text Encoding Pipeline](#22-three-stage-text-encoding-pipeline)
-  - [2.3 Positional Embeddings](#23-positional-embeddings)
-    - [2.3.1 How Positional Information is added into Text Embedding](#231-how-positional-information-is-added-into-text-embedding)
-    - [2.3.2 Sinusoidal (Fixed) Positional Encoding](#232-sinusoidal-fixed-positional-encoding)
-    - [2.3.3 Learned Positional Encoding](#233-learned-positional-encoding)
-    - [2.3.4 Modern Alternative: Rotary Position Embedding (RoPE)](#234-modern-alternative-rotary-position-embedding-rope)
-  - [2.4 Complete Example: Search Query Encoding](#24-complete-example-search-query-encoding)
-  - [2.5 Production Considerations and Optimizations](#25-production-considerations-and-optimizations)
+  - [2.1. The Sequential Encoding Challenge](#21-the-sequential-encoding-challenge)
+  - [2.2. Three-Stage Text Encoding Pipeline](#22-three-stage-text-encoding-pipeline)
+  - [2.3. Positional Embeddings](#23-positional-embeddings)
+    - [2.3.1. Adding Positional Information to Text Embeddings](#231-adding-positional-information-to-text-embeddings)
+    - [2.3.2. Sinusoidal (Fixed) Positional Encoding](#232-sinusoidal-fixed-positional-encoding)
+    - [2.3.3. Learned Positional Encoding](#233-learned-positional-encoding)
+    - [2.3.4. Modern Alternative: Rotary Position Embedding (RoPE)](#234-modern-alternative-rotary-position-embedding-rope)
+  - [2.4. Complete Example: Search Query Encoding](#24-complete-example-search-query-encoding)
+  - [2.5. Production Considerations and Optimizations](#25-production-considerations-and-optimizations)
 - [3. Sequential Embeddings for Multi-Dimensional Behavioral Actions](#3-sequential-embeddings-for-multi-dimensional-behavioral-actions)
-  - [3.1 Behavioral Sequence Representation](#31-behavioral-sequence-representation)
-  - [3.2 Tokenization and Vocabulary for Actions](#32-tokenization-and-vocabulary-for-actions)
-  - [3.3 Multi-Component Embedding Architecture](#33-multi-component-embedding-architecture)
-  - [3.4 Temporal Encoding with Exponential Decay](#34-temporal-encoding-with-exponential-decay)
-    - [3.4.1 Exponential Time Decay](#341-exponential-time-decay)
-    - [3.4.2 Integration Strategies](#342-integration-strategies)
-    - [3.4.3 Production Considerations](#343-production-considerations)
-  - [3.5 Sequence Processing Architectures](#35-sequence-processing-architectures)
-  - [3.6 Production Implementation](#36-production-implementation)
+  - [3.1. Behavioral Sequence Representation](#31-behavioral-sequence-representation)
+  - [3.2. Tokenization and Vocabulary for Actions](#32-tokenization-and-vocabulary-for-actions)
+  - [3.3. Multi-Component Embedding Architecture](#33-multi-component-embedding-architecture)
+  - [3.4. Temporal Encoding with Exponential Decay](#34-temporal-encoding-with-exponential-decay)
+    - [3.4.1. Exponential Time Decay](#341-exponential-time-decay)
+    - [3.4.2. Integration Strategies](#342-integration-strategies)
+    - [3.4.3. Production Considerations](#343-production-considerations)
+  - [3.5. Sequence Processing Architectures](#35-sequence-processing-architectures)
+  - [3.6. Production Implementation](#36-production-implementation)
 - [Summary and Next Steps](#summary-and-next-steps)
-- [References](#references)
+- [References and Further Reading](#references-and-further-reading)
 
 </details>
 
@@ -45,13 +45,9 @@ This appendix provides technical foundations for embedding-based feature encodin
 
 Neural embeddings transform discrete, high-dimensional categorical features into continuous, low-dimensional dense vectors that capture semantic relationships and enable efficient computation in neural networks.
 
-### 1.1 What are Embeddings?
+### 1.1. What Embeddings Are
 
-An **embedding** is a learned mapping from a discrete token (categorical feature) to a dense vector in $\mathbb{R}^d$:
-
-$$f: \text{Token ID} \rightarrow \mathbb{R}^d$$
-
-For example, mapping product IDs to 128-dimensional vectors: `Product_42 → [0.21, -0.45, 0.78, ..., 0.33]` (128 values).
+An **embedding** is a learned mapping from a discrete token (categorical feature) to a dense vector in $\mathbb{R}^d$, written $f: \text{Token ID} \rightarrow \mathbb{R}^d$. For example, mapping product IDs to 128-dimensional vectors: `Product_42 → [0.21, -0.45, 0.78, ..., 0.33]` (128 values).
 
 **Key properties:**
 - **Dense representation**: All dimensions have non-zero values, unlike sparse one-hot encoding
@@ -59,7 +55,7 @@ For example, mapping product IDs to 128-dimensional vectors: `Product_42 → [0.
 - **Learnable**: Embedding values are trained end-to-end with the model via backpropagation
 - **Efficient**: Reduces computational cost compared to raw categorical features
 
-### 1.2 Token ID Embeddings
+### 1.2. Token ID Embeddings
 
 The simplest embedding maps a single categorical feature to a vector via a **lookup table**.
 
@@ -70,7 +66,7 @@ The simplest embedding maps a single categorical feature to a vector via a **loo
 
 **Example**: Category embedding with vocabulary size 500, dimension 64:
 
-**Table A2.1: Category Embedding Lookup Example**
+**Table 2.1: Category Embedding Lookup Example**
 
 | Category | Token ID | Embedding Vector ($\mathbb{R}^{64}$) |
 |----------|----------|--------------------------------------|
@@ -97,9 +93,9 @@ print(f"Embedding for Product 42: {embeddings[0][:5]}...")  # First 5 dims
 # Output: tensor([-0.1234,  0.5678, -0.9012,  0.3456, -0.7890], grad_fn=...)
 ```
 
-**Important**: Token embeddings (for words, products, actions) are **always learned** via backpropagation during training. The embedding table is initialized randomly (e.g., uniform $[-0.1, 0.1]$), then optimized to capture semantic relationships and task-specific patterns. In contrast, positional embeddings (Section 2.3) can be either learned or fixed (sinusoidal).
+**Important**: Token embeddings (for words, products, actions) are **always learned** via backpropagation during training. In contrast, positional embeddings (Section 2.3) can be either learned or fixed (sinusoidal).
 
-### 1.3 Training Embeddings
+### 1.3. Training Embeddings
 
 Embeddings are **learned parameters** optimized during model training through gradient descent.
 
@@ -112,170 +108,166 @@ Embeddings are **learned parameters** optimized during model training through gr
 **Key insight**: Only embeddings for tokens present in the current batch receive gradient updates. This enables efficient training even with vocabularies of millions of tokens.
 
 **Initialization strategies:**
-- **Uniform distribution**: $\text{Uniform}(-\sqrt{1/d}, \sqrt{1/d})$ where $d$ is embedding dimension (PyTorch default)
+- **Standard normal (PyTorch default)**: `nn.Embedding`'s `reset_parameters` draws every entry independently from $\mathcal{N}(0, 1)$, unscaled by embedding dimension. This is the distribution actually used unless the embedding table is explicitly re-initialized.
+- **Uniform distribution**: $\text{Uniform}(-\sqrt{1/d}, \sqrt{1/d})$ where $d$ is embedding dimension. A common alternative that bounds initial values relative to dimension (this is `nn.Linear`'s default scheme, and practitioners sometimes apply it to embeddings as well for more balanced initial gradients).
 - **Xavier/Glorot**: $\text{Uniform}(-\sqrt{6/(d_{\text{in}} + d_{\text{out}})}, \sqrt{6/(d_{\text{in}} + d_{\text{out}})})$ for balanced gradient flow
 - **He initialization**: Used for ReLU networks, less common for embeddings
-- **Impact**: Proper initialization prevents vanishing/exploding gradients; uniform works well in practice for embeddings
+- **Impact**: Proper initialization prevents vanishing/exploding gradients; the specific choice matters less for embeddings than for deep feed-forward layers, since gradient updates only touch rows seen in the current batch
 
 **Training strategies:**
 - **End-to-end training**: Embeddings trained jointly with the full model (most common for ad ranking)
 - **Pre-training**: Initialize embeddings from auxiliary tasks (e.g., word2vec, product co-occurrence) then fine-tune
 - **Transfer learning**: Share embedding tables across multiple models (e.g., same product embeddings for CTR and CVR models)
 
-### 1.4 Why Embeddings Matter for Ad Systems
+### 1.4. Why Embeddings Matter for Ad Systems
 
 Embeddings are critical for production ad ranking systems due to four key advantages:
 
-**Table A2.2: Embedding Benefits for Production Ad Ranking**
+**Table 2.2: Embedding Benefits for Production Ad Ranking**
 
 | Benefit | Problem Addressed | Solution | Impact |
 |:-------:|:-----------------:|:--------:|:------:|
 | **Dimensionality Reduction** | One-hot encoding of 10M product IDs requires 10M-dimensional sparse vectors | 128-d dense embeddings reduce memory by 99.999% | Enables real-time serving at 10K+ QPS with manageable memory footprint |
-| **Semantic Similarity** | One-hot encoding treats all products as equally dissimilar (orthogonal vectors) | Embeddings learn that "iPhone 15" and "iPhone 14" are similar | Powers semantic retrieval (Chapter 5 ANN search) and better generalization |
-| **Computational Efficiency** | Matrix multiplication with 10M-dimensional sparse vectors is expensive | Dense 128-d vectors enable fast dot products (<1μs per operation) | Meets P99 <10ms latency requirement for scoring 200-500 candidates |
+| **Semantic Similarity** | One-hot encoding treats all products as equally dissimilar (orthogonal vectors) | Embeddings learn that "iPhone 15" and "iPhone 14" are similar | Powers semantic retrieval (**Chapter 5** ANN search) and better generalization |
+| **Computational Efficiency** | Matrix multiplication with 10M-dimensional sparse vectors is expensive | Dense 128-d vectors enable fast dot products (<1μs per operation) | Contributes headroom within **Chapter 6**'s 10-30ms P99 budget for scoring 200-500 candidates |
 | **Transferability** | Need consistent representations across retrieval, ranking, and other ML tasks | Embeddings from ranking model reused across multiple systems | Unified representation reduces engineering complexity across Chapters 5, 6, 7 |
 
-### 1.5 Extension to Sequential Features
+### 1.5. Extension to Sequential Features
 
 The token ID embeddings described above handle single categorical features. However, ad ranking requires encoding complex sequential inputs:
 
-- **Text sequences** (Section 2): Search queries ("wireless headphones"), ad titles, descriptions — variable-length strings requiring order-aware encoding
-- **Behavioral sequences** (Section 3): User action streams (Search→Click→View→Add-to-Cart) with temporal decay — multi-dimensional events with timestamps
+- **Text sequences** (Section 2): Search queries ("wireless headphones"), ad titles, descriptions. These are variable-length strings requiring order-aware encoding.
+- **Behavioral sequences** (Section 3): User action streams (Search→Click→View→Add-to-Cart) with temporal decay. These are multi-dimensional events with timestamps.
 
-Both extensions build on the foundation of token embeddings but add:
-- **Positional encoding**: Inject order information for sequence-aware models
-- **Sequential processing**: Transformers, RNNs, or attention mechanisms to contextualize tokens
-- **Temporal encoding**: Model recency effects via time-decay functions
-- **Aggregation**: Collapse variable-length sequences into fixed-size vectors
+Both extensions build on the foundation of token embeddings but add positional encoding to inject order information for sequence-aware models, sequential processing via transformers, RNNs, or attention mechanisms to contextualize tokens, temporal encoding to model recency effects via time-decay functions, and aggregation to collapse variable-length sequences into fixed-size vectors.
 
 ---
 
 ## 2. Sequential Embeddings for Text
 
-Text features—search queries, ad titles, product descriptions—are ubiquitous in ad ranking systems. This section details the architecture for transforming variable-length text into fixed-size dense vectors suitable for real-time scoring.
+Text features (search queries, ad titles, product descriptions) are ubiquitous in ad ranking systems. This section details the architecture for transforming variable-length text into fixed-size dense vectors suitable for real-time scoring.
 
-### 2.1 The Sequential Encoding Challenge
+### 2.1. The Sequential Encoding Challenge
 
 **Why text requires special handling:**
 
-1. **Order matters**: "Paris to London" ≠ "London to Paris". Bag-of-words models fail to capture directional semantics.
-2. **Semantic context**: The word "resort" in "luxury resort" has different connotations than "last resort". Token meaning depends on surrounding words.
+1. **Order matters**: "Paris to London" is not "London to Paris." Bag-of-words models fail to capture directional semantics.
+2. **Semantic context**: The word "resort" in "luxury resort" has different connotations than "last resort." Token meaning depends on surrounding words.
 3. **Variable length**: Queries range from 2 words ("NYC hotels") to 20+ words ("best pet-friendly luxury beachfront resorts in Miami for Christmas week"). Output must be fixed-size for downstream neural layers.
-4. **Latency constraints**: Text encoding must complete in 2-5ms to meet Chapter 3's P99 <10ms total latency budget for scoring.
+4. **Latency constraints**: Text encoding must complete in a few milliseconds so the Dynamic Context Tower stays well within **Chapter 6**'s 10-30ms P99 budget for scoring 200-500 candidates, leaving room for the other towers, the fusion layer, and the prediction head.
 
 **Encoding goal**: Transform variable-length text $[w_1, w_2, ..., w_N]$ into fixed-size vector $\vec{E}_{\text{query}} \in \mathbb{R}^d$ (typically $d=128$ or $d=256$).
 
-### 2.2 Three-Stage Text Encoding Pipeline
+### 2.2. Three-Stage Text Encoding Pipeline
 
-The complete pipeline involves three distinct stages:
+The complete pipeline involves three distinct stages.
 
 **Stage 1: Tokenization → Token Embeddings**
 
-1. **Tokenization**: Split text into tokens (words, subwords, or characters)
-   - Example: `"best family hotel in Orlando"` → `[best, family, hotel, in, Orlando]`
-   - Modern systems use subword tokenization (BPE, WordPiece) to handle OOV words
-
-2. **Token Embedding Lookup**: Map each token to dense vector via embedding table (Section 1.2)
-   - Vocabulary size: 10K-50K tokens for ad-specific vocabulary
-   - Embedding dimension: 64-128d per token
-   - Example: `"hotel"` → Token ID 4567 → $\mathbf{E}_{\text{token}}[4567] \in \mathbb{R}^{128}$
+Tokenization splits text into tokens (words, subwords, or characters); for example, `"best family hotel in Orlando"` becomes `[best, family, hotel, in, Orlando]`. Modern systems use subword tokenization (BPE, WordPiece) to handle out-of-vocabulary words. Each token is then mapped to a dense vector via an embedding table lookup (Section 1.2), typically drawn from a 10K-50K token ad-specific vocabulary with 64-128d embeddings; for example, `"hotel"` maps to Token ID 4567, giving $\mathbf{E}_{\text{token}}[4567] \in \mathbb{R}^{128}$.
 
 **Stage 2: Sequential Encoder (Transformer)**
 
-Process the sequence of token embeddings to create **contextualized representations**—vectors where each token incorporates information from surrounding tokens through self-attention. For example, the token "hotel" starts as a generic embedding but becomes contextualized by attending to "family", "best", and "Orlando", capturing the semantic concept "high-quality family accommodation in a specific location."
-
-- **Architecture**: Multi-head self-attention (Transformer) is the modern standard, replacing older RNN/LSTM approaches
-- **Mechanism**: Self-attention computes relationships between all token pairs, allowing "hotel" to attend to "family", "best", and "Orlando" simultaneously
-- **Output**: Sequence of contextualized vectors $[\vec{h}_1, \vec{h}_2, ..., \vec{h}_N]$ where each $\vec{h}_i$ represents token $i$ in the context of the full query
+This stage processes the sequence of token embeddings to create **contextualized representations**, vectors where each token incorporates information from surrounding tokens through self-attention. For example, the token "hotel" starts as a generic embedding but becomes contextualized by attending to "family", "best", and "Orlando", capturing the semantic concept "high-quality family accommodation in a specific location." Multi-head self-attention (the Transformer [1]) is the modern standard, replacing older RNN/LSTM [4] approaches, because self-attention computes relationships between all token pairs simultaneously rather than propagating state sequentially. The output is a sequence of contextualized vectors $[\vec{h}_1, \vec{h}_2, ..., \vec{h}_N]$, where each $\vec{h}_i$ represents token $i$ in the context of the full query.
 
 **Stage 3: Pooling → Fixed-Size Output**
 
-Aggregate the sequence of $N$ contextualized vectors into single vector $\vec{E}_{\text{query}}$.
+The final stage aggregates the sequence of $N$ contextualized vectors into a single vector $\vec{E}_{\text{query}}$. Common strategies include average pooling, $\vec{E}_{\text{query}} = \frac{1}{N} \sum_{i=1}^{N} \vec{h}_i$ (the most common and most robust choice), max pooling, an element-wise maximum $\vec{E}_{\text{query}} = \max(\vec{h}_1, \vec{h}_2, ..., \vec{h}_N)$, and the CLS token approach, which uses the output of a special classification token prepended to the input (the BERT [2] approach).
 
-**Common strategies:**
-- **Average pooling**: $\vec{E}_{\text{query}} = \frac{1}{N} \sum_{i=1}^{N} \vec{h}_i$ (most common, robust)
-- **Max pooling**: $\vec{E}_{\text{query}} = \max(\vec{h}_1, \vec{h}_2, ..., \vec{h}_N)$ (element-wise max)
-- **CLS token**: Use output of special classification token prepended to input (BERT approach)
+**Figure 2.1: Three-Stage Text Encoding Pipeline**
 
-### 2.3 Positional Embeddings
+```mermaid
+flowchart LR
+    A["Raw text:<br/>best family hotel in Orlando"] --> B[Tokenization]
+    B --> C[Token Embedding Lookup]
+    C --> D["+ Positional Embedding<br/>Section 2.3"]
+    D --> E["Transformer Self-Attention<br/>N encoder layers"]
+    E --> F["Pooling<br/>mean / max / CLS"]
+    F --> G["Fixed-size query embedding<br/>E_query in R^128"]
+```
 
-The above token-based embedding would be sufficient for older sequential models, like RNN/LSTM, as they process tokens sequentially, but the self-attention in Transformers processes all tokens **in parallel** and is **permutation invariant**. Without modification, the model cannot distinguish "New York to Seattle" from "Seattle to New York"—both produce identical attention patterns. Positional embedding was then introduced for Transformers.
+### 2.3. Positional Embeddings
 
-#### 2.3.1 How Positional Information is added into Text Embedding
+The above token-based embedding would be sufficient for older sequential models, like RNN/LSTM, as they process tokens sequentially, but the self-attention in Transformers processes all tokens **in parallel** and is **permutation invariant**. Without modification, the model cannot distinguish "New York to Seattle" from "Seattle to New York": both produce identical attention patterns. Positional embedding was introduced to solve exactly this problem for Transformers.
+
+#### 2.3.1. Adding Positional Information to Text Embeddings
 
 **Positional embeddings** are additional vectors that encode position information, added to token embeddings at the input layer:
 
-$$\vec{V}_{\text{input}}^{(i)} = \vec{E}_{\text{token}}^{(i)} + \vec{E}_{\text{pos}}^{(i)}$$
+$$
+\vec{V}_{\text{input}}^{(i)} = \vec{E}_{\text{token}}^{(i)} + \vec{E}_{\text{pos}}^{(i)}
+\tag{2.1}
+$$
 
-**Why addition instead of concatenation?**
-- **Addition** ($\mathbb{R}^{128} + \mathbb{R}^{128} \rightarrow \mathbb{R}^{128}$): Parameter-efficient, proven effective for correlated features (position and meaning are intertwined in language)
-- **Concatenation** ($[\mathbb{R}^{128} \parallel \mathbb{R}^{128}] \rightarrow \mathbb{R}^{256}$): Used when features are independent and require separate transformations (see Section 3.2 for behavioral sequences)
+where $\vec{E}_{\text{token}}^{(i)}$ is the token embedding for the $i$-th word (semantic meaning), $\vec{E}_{\text{pos}}^{(i)}$ is the positional embedding for position $i$ (order information), and $\vec{V}_{\text{input}}^{(i)}$ is the final input vector combining both.
 
-Where:
-- $\vec{E}_{\text{token}}^{(i)}$: Token embedding for the $i$-th word (semantic meaning)
-- $\vec{E}_{\text{pos}}^{(i)}$: Positional embedding for position $i$ (order information)
-- $\vec{V}_{\text{input}}^{(i)}$: Final input vector combining both
+**Addition vs. concatenation**: Addition ($\mathbb{R}^{128} + \mathbb{R}^{128} \rightarrow \mathbb{R}^{128}$) is parameter-efficient and proven effective for correlated features, since position and meaning are intertwined in language. Concatenation ($[\mathbb{R}^{128} \parallel \mathbb{R}^{128}] \rightarrow \mathbb{R}^{256}$) is used instead when features are independent and require separate transformations (see Section 3.2 for behavioral sequences).
 
 **Result**: Token "Seattle" at position 1 produces a different input vector than "Seattle" at position 4, enabling the model to learn order-dependent patterns.
 
-#### 2.3.2 Sinusoidal (Fixed) Positional Encoding
+#### 2.3.2. Sinusoidal (Fixed) Positional Encoding
 
-The original Transformer paper [1] introduced **sinusoidal encoding**—deterministic functions that generate unique position vectors without learned parameters.
+The original Transformer paper [1] introduced **sinusoidal encoding**, deterministic functions that generate unique position vectors without learned parameters.
 
 **Formula**: For position $\text{pos}$ and dimension index $i$:
 
-$$\begin{aligned}
+$$
+\begin{aligned}
 \text{PE}_{(\text{pos}, 2i)} &= \sin\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right) \\
 \text{PE}_{(\text{pos}, 2i+1)} &= \cos\left(\frac{\text{pos}}{10000^{2i/d_{\text{model}}}}\right)
-\end{aligned}$$
+\end{aligned}
+\tag{2.2}
+$$
 
 **Key properties:**
 - Alternating sine/cosine pairs across dimensions
 - Variable frequencies: lower dimensions have higher frequencies (capture fine-grained position), higher dimensions have lower frequencies (capture coarse-grained position)
 - Allows model to learn relative positions (PE for position $\text{pos}+k$ is a linear function of PE for position $\text{pos}$)
 
-**Table A2.8: Sinusoidal Positional Encoding Example (4 dimensions)**
+**Table 2.3: Sinusoidal Positional Encoding Example (4 dimensions)**
 
 | Position | Dimension 0 (sin) | Dimension 1 (cos) | Dimension 2 (sin) | Dimension 3 (cos) |
 |:--------:|:-----------------:|:-----------------:|:-----------------:|:-----------------:|
 | 0 | 0.000 | 1.000 | 0.000 | 1.000 |
 | 1 | 0.841 | 0.540 | 0.010 | 1.000 |
-| 2 | 0.909 | -0.416 | 0.020 | 0.999 |
-| 3 | 0.141 | -0.990 | 0.030 | 0.999 |
+| 2 | 0.909 | -0.416 | 0.020 | 1.000 |
+| 3 | 0.141 | -0.990 | 0.030 | 1.000 |
 
-(Values computed using $\sin(pos/10000^{2i/d})$ and $\cos(pos/10000^{2i/d})$ for dimension indices $i=0,1$)
+(Values computed using **Equation 2.2** with $d_{\text{model}}=4$, so dimension indices $i=0,1$; Dimension 2/3's divisor $10000^{2(1)/4}=100$ keeps $\text{pos}/100$ small enough that cosine stays at 1.000 to three decimal places across these positions.)
 
-#### 2.3.3 Learned Positional Encoding
+#### 2.3.3. Learned Positional Encoding
 
-Modern models like BERT [2] use **learned positional embeddings**—trainable parameters optimized during model training.
+Modern models like BERT [2] use **learned positional embeddings**, trainable parameters optimized during model training.
 
 **Architecture**: Maintain a position embedding table (similar to token embedding table):
 - Position vocabulary: 0 to MAX_SEQ_LEN (e.g., 512 positions)
 - Embedding dimension: Same as token embedding dimension (e.g., 128d)
 - Lookup: Position $i$ → $\mathbf{E}_{\text{pos}}[i]$
 
-**Advantages**:
-- Model learns task-specific positional patterns most useful for CTR/CVR prediction
-- No mathematical constraints—can capture arbitrary position-dependent effects
-- Empirically outperforms sinusoidal encoding in most applications
+Learned embeddings let the model learn task-specific positional patterns most useful for CTR/CVR prediction, without the mathematical constraints of a fixed formula, and they empirically outperform sinusoidal encoding in most applications. Their disadvantage is that they cannot extrapolate beyond the maximum sequence length seen during training, whereas sinusoidal encoding can handle arbitrary lengths.
 
-**Disadvantage**: Cannot extrapolate beyond maximum sequence length seen during training (sinusoidal can handle arbitrary lengths).
+#### 2.3.4. Modern Alternative: Rotary Position Embedding (RoPE)
 
-#### 2.3.4 Modern Alternative: Rotary Position Embedding (RoPE)
+Recent LLMs (LLaMA, Mistral, GPT-J) use **RoPE** [6] instead of additive positional embeddings. RoPE encodes relative positions by rotating query/key vectors in attention. Treating each pair of dimensions in a query vector as the real and imaginary parts of a complex number, RoPE rotates the pair at position $m$ by an angle proportional to that position:
 
-Recent LLMs (LLaMA, Mistral, GPT-J) use **RoPE** instead of additive positional embeddings. RoPE encodes relative positions by rotating query/key vectors in attention:
+$$
+\text{RoPE}(\vec{q}_m, m) = \vec{q}_m \cdot e^{i m \theta_j}, \quad \theta_j = 10000^{-2j/d}
+\tag{2.3}
+$$
 
-$$\text{RoPE}(\vec{q}_i, i) = \vec{q}_i \cdot e^{i\theta_j m}, \quad \theta_j = 10000^{-2j/d}$$
+where $\vec{q}_m$ is the query vector at position $m$, $i = \sqrt{-1}$ is the imaginary unit, and $j$ indexes the dimension pair.
 
-**Key advantage**: Naturally generalizes to sequences longer than training length (unlike learned embeddings limited to fixed `max_seq_len`). For ad serving with fixed query lengths (Section 2.1), learned embeddings suffice, but RoPE is preferred for production LLM-based query expansion systems.
+**Key advantage**: RoPE naturally generalizes to sequences longer than the training length, unlike learned embeddings limited to a fixed `max_seq_len`. For ad serving with fixed query lengths (Section 2.1), learned embeddings suffice, but RoPE is preferred for production LLM-based query expansion systems.
 
 ---
 
-### 2.4 Complete Example: Search Query Encoding
+### 2.4. Complete Example: Search Query Encoding
 
 **Input query**: `"best family hotel in Orlando"`
 
 **Step 1: Tokenization and Token Embedding**
+
+**Table 2.4: Query Tokenization and Token Embedding Example**
 
 | Position | Token | Token ID | Token Embedding ($\mathbb{R}^{128}$) |
 |:--------:|:-----:|:--------:|:------------------------------------:|
@@ -287,14 +279,7 @@ $$\text{RoPE}(\vec{q}_i, i) = \vec{q}_i \cdot e^{i\theta_j m}, \quad \theta_j = 
 
 **Step 2: Add Positional Embeddings**
 
-For each position $i$, compute input vector:
-
-$$\vec{V}_{\text{input}}^{(i)} = \vec{E}_{\text{token}}^{(i)} + \vec{E}_{\text{pos}}^{(i)}$$
-
-Example for position 3 (token "hotel"):
-- Token embedding: $[0.12, -0.34, 0.56, ..., 0.78]$ (128-d)
-- Positional embedding: $[0.14, -0.99, 0.03, ..., 0.99]$ (128-d)
-- Input vector: $[0.26, -1.33, 0.59, ..., 1.77]$ (element-wise sum)
+For each position $i$, we compute the input vector using **Equation 2.1**. For position 3 (token "hotel"), the token embedding $[0.12, -0.34, 0.56, ..., 0.78]$ (128-d) plus the positional embedding at position 3 from **Table 2.3**, $[0.14, -0.99, 0.03, ..., 1.00]$ (128-d), gives the input vector $[0.26, -1.33, 0.59, ..., 1.78]$ (element-wise sum).
 
 **Step 3: Transformer Encoder Processing**
 
@@ -305,26 +290,22 @@ Feed sequence $[\vec{V}_{\text{input}}^{(1)}, ..., \vec{V}_{\text{input}}^{(5)}]
    - "hotel" attends weakly to "in" (low attention weight)
 
 2. **Contextualization**: Generate contextualized representations
-   - $\vec{h}_3^{\text{hotel}}$ now encodes "hotel" in the context of "family", "best", and "Orlando"—capturing the concept of "high-quality family accommodation in Orlando"
+   - $\vec{h}_3^{\text{hotel}}$ now encodes "hotel" in the context of "family", "best", and "Orlando", capturing the concept of "high-quality family accommodation in Orlando"
 
 3. **Multiple Layers**: Stack 4-12 Transformer layers for deeper contextualization
 
 **Step 4: Pooling to Fixed-Size Vector**
 
-Apply average pooling over all contextualized token vectors:
+Applying average pooling (Section 2.2, Stage 3) over all five contextualized token vectors gives $\vec{E}_{\text{query}} = \frac{1}{5} \sum_{i=1}^{5} \vec{h}_i \in \mathbb{R}^{128}$, a single dense vector representing the entire query, ready for concatenation with other features in Chapter 6's Dynamic Context Tower.
 
-$$\vec{E}_{\text{query}} = \frac{1}{5} \sum_{i=1}^{5} \vec{h}_i$$
+### 2.5. Production Considerations and Optimizations
 
-**Output**: $\vec{E}_{\text{query}} \in \mathbb{R}^{128}$ — a single dense vector representing the entire query, ready for concatenation with other features in Chapter 6's Dynamic Context Tower.
-
-### 2.5 Production Considerations and Optimizations
-
-**Latency budget allocation** (total scoring latency P99 <10ms):
+**Latency budget allocation for text encoding** (target: comfortably inside Chapter 6's 10-30ms total P99 budget for scoring 200-500 candidates):
 - Tokenization: <0.5ms
 - Embedding lookup: <0.5ms
 - Transformer forward pass: 2-4ms (4-6 layers, 128-d hidden size)
 - Pooling: <0.1ms
-- **Total text encoding: 3-5ms** (leaves 5-7ms for remaining model components)
+- **Total text encoding: 3-5ms**, leaving the remaining budget for the other two towers, the fusion layer, and the prediction head
 
 **Optimization strategies**:
 - **Mixed precision (FP16/INT8)**: Reduces latency by 2-3x. Train in FP16, deploy embeddings in INT8.
@@ -332,7 +313,7 @@ $$\vec{E}_{\text{query}} = \frac{1}{5} \sum_{i=1}^{5} \vec{h}_i$$
 - **KV cache**: Essential for autoregressive tasks (though less critical for standard encoder-only ranking).
 - **Caching**: Cache embeddings for top 10K frequent queries (20-40% hit rate).
 
-**Code Listing A2.1: Query Encoder with Positional Embeddings**
+**Code Listing 2.1: Query Encoder with Positional Embeddings**
 
 ```python
 import torch
@@ -400,15 +381,26 @@ print(f"Query embedding shape: {query_embed.shape}")  # torch.Size([1, 128])
 
 ## 3. Sequential Embeddings for Multi-Dimensional Behavioral Actions
 
-User behavioral sequences—Search→Click→View→Add-to-Cart—provide critical signals for predicting ad engagement. Unlike text (Section 2), behavioral sequences have **multi-dimensional features** (action type, item ID, context) and **temporal decay** (recent actions matter more). This section details architectures for encoding these complex sequences under real-time serving constraints.
+User behavioral sequences (Search→Click→View→Add-to-Cart) provide critical signals for predicting ad engagement. Unlike text (Section 2), behavioral sequences have **multi-dimensional features** (action type, item ID, context) and **temporal decay** (recent actions matter more). This section details architectures for encoding these complex sequences under real-time serving constraints.
 
-The key challenge is converting the raw, high-speed stream of actions into a structured, fixed-size vector (the embedding) that can be served in the $\text{P99} < 10\text{ms}$ time window.
+The key challenge is converting the raw, high-speed stream of actions into a structured, fixed-size vector (the embedding) that fits comfortably inside Chapter 6's 10-30ms P99 scoring budget alongside the other towers.
 
-### 3.1 Behavioral Sequence Representation
+**Figure 2.2: Behavioral Sequence Encoding Pipeline**
+
+```mermaid
+flowchart LR
+    A["Raw event stream:<br/>Search -> Click -> View -> Cart"] --> B["Tokenization<br/>action / item / context IDs"]
+    B --> C["Multi-Component Embedding<br/>Section 3.3"]
+    C --> D["Temporal Decay Weighting<br/>Section 3.4"]
+    D --> E["Sequence Processing<br/>DIN / Transformer / RNN"]
+    E --> F["Fixed-size behavioral embedding<br/>E_behavior"]
+```
+
+### 3.1. Behavioral Sequence Representation
 
 A user's recent action sequence forms a **temporal event stream** captured during the current session or recent history (e.g., last 50 actions, last 5 minutes).
 
-**Table A2.3: Raw Behavioral Sequence Structure**
+**Table 2.5: Raw Behavioral Sequence Structure**
 
 | Timestamp | Action Type | Item ID | Context |
 |:---------:|:-----------:|:-------:|:-------:|
@@ -426,11 +418,11 @@ A user's recent action sequence forms a **temporal event stream** captured durin
 
 **Encoding goal**: Transform variable-length sequence into fixed-size vector $\vec{E}_{\text{behavior}} \in \mathbb{R}^d$ (typically $d=256$-$512$) capturing recent user intent.
 
-### 3.2 Tokenization and Vocabulary for Actions
+### 3.2. Tokenization and Vocabulary for Actions
 
 Before neural processing, all categorical features must be mapped to discrete token IDs.
 
-**Table A2.4: Vocabulary Mappings for Behavioral Features**
+**Table 2.6: Vocabulary Mappings for Behavioral Features**
 
 | Feature Type | Vocabulary Size | Example Mapping | OOV Strategy |
 |:------------:|:---------------:|:---------------:|:------------:|
@@ -445,7 +437,7 @@ Before neural processing, all categorical features must be mapped to discrete to
 - **Padding**: Prepend special `[PAD]` token (ID=0) if user has fewer than $L$ actions
 - **Serving pipeline**: Streaming system maintains rolling window of last $L$ actions per user
 
-**Table A2.5: Example Tokenized Behavioral Sequence**
+**Table 2.7: Example Tokenized Behavioral Sequence**
 
 | Position | Action Token | Item Token | Context Token | Time Delta (s) |
 |:--------:|:------------:|:----------:|:-------------:|:--------------:|
@@ -454,57 +446,84 @@ Before neural processing, all categorical features must be mapped to discrete to
 | 3 | 3 (View) | 4567 | 5 (PDP) | 20 |
 | 4 | 4 (Cart) | 4567 | 8 (Cart_Page) | 5 |
 
-### 3.3 Multi-Component Embedding Architecture
+### 3.3. Multi-Component Embedding Architecture
 
 Each action requires embeddings for multiple feature types, combined with positional and temporal encodings.
 
 **Embedding components for action $i$**:
 
-1. **Action embedding**: $\vec{E}_{\text{action}}^{(i)} \in \mathbb{R}^{32}$ — encodes action type
-2. **Item embedding**: $\vec{E}_{\text{item}}^{(i)} \in \mathbb{R}^{64}$ — encodes item ID (if present)
-3. **Context embedding**: $\vec{E}_{\text{context}}^{(i)} \in \mathbb{R}^{32}$ — encodes contextual features
-4. **Positional embedding**: $\vec{E}_{\text{pos}}^{(i)} \in \mathbb{R}^{32}$ — encodes sequence position
-5. **Temporal embedding**: $T^{(i)} \in \mathbb{R}$ — encodes recency via time-decay (Section 3.4)
+1. **Action embedding**: $\vec{E}_{\text{action}}^{(i)} \in \mathbb{R}^{32}$, encoding action type
+2. **Item embedding**: $\vec{E}_{\text{item}}^{(i)} \in \mathbb{R}^{64}$, encoding item ID (if present)
+3. **Context embedding**: $\vec{E}_{\text{context}}^{(i)} \in \mathbb{R}^{32}$, encoding contextual features
+4. **Positional embedding**: $\vec{E}_{\text{pos}}^{(i)} \in \mathbb{R}^{32}$, encoding sequence position
+5. **Temporal embedding**: $T^{(i)} \in \mathbb{R}$, encoding recency via time-decay (Section 3.4)
 
-**Fusion strategies**:
+**Fusion strategies:**
 
 **Option A: Concatenation** (simple, most common)
-$$\vec{V}_{\text{action}}^{(i)} = [\vec{E}_{\text{action}}^{(i)} \parallel \vec{E}_{\text{item}}^{(i)} \parallel \vec{E}_{\text{context}}^{(i)} \parallel \vec{E}_{\text{pos}}^{(i)}] \in \mathbb{R}^{160}$$
 
-**Option B: Additive** (parameter-efficient)
-$$\vec{V}_{\text{action}}^{(i)} = \vec{E}_{\text{action}}^{(i)} + \vec{E}_{\text{item}}^{(i)} + \vec{E}_{\text{context}}^{(i)} + \vec{E}_{\text{pos}}^{(i)} \in \mathbb{R}^{64}$$
-(Requires all embeddings to have same dimension)
+$$
+\vec{V}_{\text{action}}^{(i)} = [\vec{E}_{\text{action}}^{(i)} \parallel \vec{E}_{\text{item}}^{(i)} \parallel \vec{E}_{\text{context}}^{(i)} \parallel \vec{E}_{\text{pos}}^{(i)}] \in \mathbb{R}^{160}
+\tag{2.4}
+$$
+
+**Option B: Additive** (parameter-efficient; requires all embeddings to have the same dimension)
+
+$$
+\vec{V}_{\text{action}}^{(i)} = \vec{E}_{\text{action}}^{(i)} + \vec{E}_{\text{item}}^{(i)} + \vec{E}_{\text{context}}^{(i)} + \vec{E}_{\text{pos}}^{(i)} \in \mathbb{R}^{64}
+\tag{2.5}
+$$
 
 The sequence of action vectors $[\vec{V}_{\text{action}}^{(1)}, ..., \vec{V}_{\text{action}}^{(L)}]$ is then processed by a sequential model (Section 3.5).
 
-### 3.4 Temporal Encoding with Exponential Decay
+**Figure 2.3: Multi-Component Embedding Fusion for a Single Action**
+
+```mermaid
+flowchart TB
+    subgraph Action_i["Action i"]
+        A1["Action Embedding<br/>32-d"]
+        A2["Item Embedding<br/>64-d"]
+        A3["Context Embedding<br/>32-d"]
+        A4["Positional Embedding<br/>32-d"]
+    end
+    A1 --> C{"Concatenate<br/>or Add"}
+    A2 --> C
+    A3 --> C
+    A4 --> C
+    C --> V["Action vector V_action^(i)"]
+```
+
+### 3.4. Temporal Encoding with Exponential Decay
 
 While positional embeddings encode sequence order, **temporal decay** captures the intuition that recent actions are more predictive than older actions.
 
-#### 3.4.1 Exponential Time Decay
+#### 3.4.1. Exponential Time Decay
 
 Define recency weight for action $i$ with time delta $\Delta t^{(i)}$ (seconds since current request):
 
-$$w^{(i)} = \exp(-\lambda \cdot \Delta t^{(i)})$$
+$$
+w^{(i)} = \exp(-\lambda \cdot \Delta t^{(i)})
+\tag{2.6}
+$$
 
 where $\lambda$ is a **decay rate hyperparameter** controlling how quickly weights diminish (typical values: $\lambda = 0.01$-$0.1$ for second-scale decay).
 
 **Example**: For actions at $\Delta t \in \{120, 45, 20, 5\}$ seconds with $\lambda = 0.02$:
 
-**Table A2.6: Temporal Decay Weight Calculation**
+**Table 2.8: Temporal Decay Weight Calculation**
 
-| Action | $\Delta t$ (s) | $w = \exp(-0.02 \cdot \Delta t)$ | Normalized Weight |
+| Action | $\Delta t$ (s) | $w = \exp(-0.02 \cdot \Delta t)$ | Normalized Weight ($w / \sum w$) |
 |:------:|:--------------:|:-------------------------------:|:-----------------:|
-| 1 (Search) | 120 | 0.091 | 0.063 |
-| 2 (Click) | 45 | 0.406 | 0.281 |
-| 3 (Scroll) | 20 | 0.670 | 0.464 |
-| 4 (View) | 5 | 0.905 | 0.627 |
+| 1 (Search) | 120 | 0.091 | 0.044 |
+| 2 (Click) | 45 | 0.407 | 0.196 |
+| 3 (Scroll) | 20 | 0.670 | 0.323 |
+| 4 (View) | 5 | 0.905 | 0.437 |
 
-The most recent action (5s ago) has $10\times$ the weight of the oldest action (120s ago).
+The most recent action (5s ago) has $10\times$ the raw weight of the oldest action (120s ago); this ratio is preserved whether we work with the raw weights or the sum-normalized column.
 
-#### 3.4.2 Integration Strategies
+#### 3.4.2. Integration Strategies
 
-**Table A2.9: Temporal Decay Integration Methods**
+**Table 2.9: Temporal Decay Integration Methods**
 
 | Strategy | Approach | When to Use | Complexity |
 |:--------:|:--------:|:-----------:|:----------:|
@@ -512,24 +531,21 @@ The most recent action (5s ago) has $10\times$ the weight of the oldest action (
 | **Direct Scaling** | Scale action vectors before sequence processing: $\tilde{\vec{V}}_{\text{action}}^{(i)} = w^{(i)} \cdot \vec{V}_{\text{action}}^{(i)}$ | With RNN/GRU/Transformer, parameter-efficient | Low |
 | **Learned Temporal Embedding** | Discretize $\Delta t$ into buckets (0-10s, 10-30s, etc.); learn embedding $\vec{E}_{\text{time}}^{(i)}$; concatenate: $\vec{V}_{\text{action}}^{(i)} = [\vec{E}_{\text{action}}^{(i)} \parallel ... \parallel \vec{E}_{\text{time}}^{(i)}]$ | When model should learn decay pattern from data | High |
 
-#### 3.4.3 Production Considerations
+#### 3.4.3. Production Considerations
 
 **Latency impact**: Exponential decay computation adds <0.1ms overhead (vectorized numpy/PyTorch operations).
 
-**Decay rate tuning**:
-- **Too large** ($\lambda > 0.1$): Only last 1-2 actions matter, loses signal from earlier actions
-- **Too small** ($\lambda < 0.001$): All actions weighted equally, loses recency signal
-- **Recommendation**: Start with $\lambda = 0.02$ (50% weight decay at 35 seconds), tune via A/B test
+**Decay rate tuning**: setting $\lambda$ too large ($\lambda > 0.1$) means only the last 1-2 actions matter, losing signal from earlier actions, while setting it too small ($\lambda < 0.001$) weights all actions roughly equally, losing the recency signal entirely. We recommend starting with $\lambda = 0.02$ (50% weight decay at 35 seconds) and tuning via A/B test.
 
 **Alternative**: Linear decay $w^{(i)} = \max(0, 1 - \lambda \cdot \Delta t^{(i)})$ is faster to compute but less principled.
 
 ---
 
-### 3.5 Sequence Processing Architectures
+### 3.5. Sequence Processing Architectures
 
 The sequence of (possibly temporally-weighted) action vectors is processed to produce the final behavioral embedding.
 
-**Table A2.7: Sequence Processing Architecture Comparison**
+**Table 2.10: Sequence Processing Architecture Comparison**
 
 | Model | Computation | Latency (50 actions) | When to Use |
 |:-----:|:-----------:|:--------------------:|:-----------:|
@@ -538,16 +554,42 @@ The sequence of (possibly temporally-weighted) action vectors is processed to pr
 | **DIN (Deep Interest Network)** | Candidate-aware attention | 3-5ms | Ad-specific relevance (recommended) |
 | **Mean/Max Pooling** | Element-wise aggregation | <1ms | Extreme latency constraints |
 
-**Deep Interest Network (DIN)** is most common for RMN:
-1. Compute attention score between each historical action $i$ and current candidate ad $\vec{E}_{\text{ad}}$:
-   $$\alpha^{(i)} = \text{softmax}(\vec{W}_{\text{attn}} \cdot [\vec{V}_{\text{action}}^{(i)} \parallel \vec{E}_{\text{ad}} \parallel \vec{V}_{\text{action}}^{(i)} \odot \vec{E}_{\text{ad}}])$$
-2. Aggregate: $\vec{E}_{\text{behavior}} = \sum_{i=1}^{L} \alpha^{(i)} \vec{V}_{\text{action}}^{(i)}$
+**Deep Interest Network (DIN)** [3] is the most common choice for RMN behavioral encoding. A local activation unit, a small feed-forward network, scores each historical action $i$ against the current candidate ad $\vec{E}_{\text{ad}}$:
 
-**Output**: Fixed-size behavioral embedding $\vec{E}_{\text{behavior}} \in \mathbb{R}^{256}$ capturing user intent relevant to current ad candidate.
+$$
+\alpha^{(i)} = \vec{W}_{\text{attn}} \cdot [\vec{V}_{\text{action}}^{(i)} \parallel \vec{E}_{\text{ad}} \parallel \vec{V}_{\text{action}}^{(i)} \odot \vec{E}_{\text{ad}}]
+\tag{2.7}
+$$
 
-### 3.6 Production Implementation
+A detail that distinguishes DIN from standard attention is worth stating precisely: the original paper deliberately does not normalize $\alpha^{(i)}$ with a softmax over the sequence [3]. Forcing the weights to sum to one would discard information about how strongly a user's interests are activated overall; leaving them unnormalized lets their sum approximate the intensity of the user's activated interest, which a normalized attention distribution cannot represent. The historical actions are then aggregated into the behavioral embedding:
 
-**Code Listing A2.2: Behavioral Sequence Encoder with Temporal Decay**
+$$
+\vec{E}_{\text{behavior}} = \sum_{i=1}^{L} \alpha^{(i)} \vec{V}_{\text{action}}^{(i)}
+\tag{2.8}
+$$
+
+**Figure 2.4: DIN Temporal-Decayed Attention Pooling**
+
+```mermaid
+flowchart TB
+    V1["Action vector 1"] --> ATT[Local Activation Unit]
+    V2["Action vector 2"] --> ATT
+    VL["Action vector L"] --> ATT
+    AD["Candidate ad embedding"] --> ATT
+    ATT --> S["Per-action scores alpha^(i)<br/>unnormalized"]
+    TD["Temporal decay weights<br/>w^(i) = exp(-lambda * delta t)"] --> WS[Weighted Sum]
+    S --> WS
+    V1 --> WS
+    V2 --> WS
+    VL --> WS
+    WS --> BE["Behavioral embedding E_behavior"]
+```
+
+**Output**: Fixed-size behavioral embedding $\vec{E}_{\text{behavior}} \in \mathbb{R}^{256}$ capturing user intent relevant to current ad candidate. **Code Listing 2.2** below illustrates a softmax-normalized variant of this attention mechanism: a common production simplification that trades away the interest-intensity signal described above for a bounded, more numerically stable weight distribution.
+
+### 3.6. Production Implementation
+
+**Code Listing 2.2: Behavioral Sequence Encoder with Temporal Decay**
 
 ```python
 import torch
@@ -673,46 +715,42 @@ class BehavioralSequenceEncoder(nn.Module):
 
 ## Summary and Next Steps
 
-This appendix detailed three foundational embedding techniques for sequential features in RMN multi-tower models:
+This appendix built three foundational embedding techniques for sequential features in RMN multi-tower models, moving from single-token lookups to the sequential encoders that feed Chapter 6's Dynamic Context Tower.
 
-**Section 1: Fundamentals** established neural embedding basics—high-dimensional sparse features (token IDs, item IDs) mapped to dense low-dimensional vectors via learned lookup tables, trained end-to-end with ranking objectives.
+**Section 1** established neural embedding basics: high-dimensional sparse features, token IDs, and item IDs, mapped to dense low-dimensional vectors via learned lookup tables and trained end-to-end with ranking objectives.
 
-**Section 2: Text Sequences** covered query/search term encoding through three stages: (1) tokenization to vocabulary IDs, (2) embedding lookup with positional encodings, (3) Transformer-based contextualization. Code Listing A2.1 demonstrated production implementation with latency considerations (3-5ms for typical queries).
+**Section 2** covered query and search-term encoding through the three-stage pipeline of tokenization, positionally-encoded embedding lookup, and Transformer-based contextualization, closing with a complete worked example and **Code Listing 2.1**'s production implementation running in 3-5ms per query.
 
-**Section 3: Behavioral Actions** addressed multi-dimensional action sequences with temporal decay—concatenating action/item/context/positional embeddings, applying exponential time-decay weighting, and processing via DIN attention. Code Listing A2.2 showed complete encoder achieving 4-5ms latency for 50-action sequences.
+**Section 3** addressed multi-dimensional behavioral action sequences: concatenating action, item, context, and positional embeddings, applying exponential time-decay weighting, and aggregating with DIN-style attention, closing with **Code Listing 2.2**'s complete encoder running in roughly 4-5ms for 50-action sequences.
 
-**Integration with Chapter 6**: These embedding architectures serve as input towers to the multi-tower scoring model:
-- Query encoder $\vec{E}_{\text{query}}$ feeds the Dynamic Context Tower
-- Behavioral encoder $\vec{E}_{\text{behavior}}$ feeds the Dynamic Context Tower (combined with query)
-- Final scoring combines tower outputs: $\text{score} = f(\vec{E}_{\text{user}}, \vec{E}_{\text{context}}, \vec{E}_{\text{ad}})$
+Together, these embedding architectures serve as input towers to the multi-tower scoring model described in **Chapter 6**: the query encoder $\vec{E}_{\text{query}}$ and the behavioral encoder $\vec{E}_{\text{behavior}}$ both feed the Dynamic Context Tower, and the final scoring model combines all tower outputs as $\text{score} = f(\vec{E}_{\text{user}}, \vec{E}_{\text{context}}, \vec{E}_{\text{ad}})$.
 
-**Forward connections**:
-- **Chapter 7 (Budget Pacing)**: Embeddings power real-time bid adjustment
-- **Chapter 8 (Creative Optimization)**: Text encoders enable semantic ad-query matching
-- **Chapter 5 (ANN Retrieval)**: Behavioral embeddings drive candidate generation via approximate nearest neighbor search
-
-For readers interested in advanced sequence modeling (multi-head attention, sparse Transformers for long sequences), see references [1] and [3] for foundational architectures.
+The same embeddings also do double duty beyond scoring. **Chapter 5 (Ads Retrieval)** uses these behavioral and query embeddings directly for candidate generation, running approximate nearest neighbor search over the ad corpus rather than a full re-encoding. **Chapter 10 (Predictive Audiences)** applies the same Transformer sequence-encoder pattern from Section 3 to a longer-horizon propensity-modeling setting, where a bidirectional self-attention encoder trained with a masked-item objective builds user embeddings for audience scoring rather than per-request ad ranking. Readers interested in the broader family of sequence architectures these sections drew on, including multi-head attention and long-sequence Transformer variants, should consult references [1] and [3] below.
 
 ---
 
-## References
+## References and Further Reading
 
 1. **Vaswani, A., et al. (2017).** "Attention Is All You Need." *NeurIPS 2017*.  
-   DOI: [10.5555/3295222.3295349](https://dl.acm.org/doi/10.5555/3295222.3295349)  
+   DOI: [10.5555/3295222.3295349](https://dl.acm.org/doi/10.5555/3295222.3295349); arXiv: [1706.03762](https://arxiv.org/abs/1706.03762)  
    The foundational Transformer architecture with self-attention and sinusoidal positional encoding used in Section 2.
 
 2. **Devlin, J., et al. (2019).** "BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding." *NAACL 2019*.  
    DOI: [10.18653/v1/N19-1423](https://doi.org/10.18653/v1/N19-1423)  
-   Learned positional embeddings and bidirectional encoding approach referenced in Section 2.4.
+   Learned positional embeddings and bidirectional encoding approach referenced in Section 2.3.3 and Section 2.4.
 
 3. **Zhou, G., et al. (2018).** "Deep Interest Network for Click-Through Rate Prediction." *KDD 2018*.  
-   DOI: [10.1145/3219819.3219823](https://doi.org/10.1145/3219819.3219823)  
-   Introduced DIN attention mechanism for behavioral sequences (Section 3.5, Code Listing A2.2).
+   DOI: [10.1145/3219819.3219823](https://doi.org/10.1145/3219819.3219823); arXiv: [1706.06978](https://arxiv.org/abs/1706.06978)  
+   Introduces the DIN local activation unit that adaptively weights historical behaviors by relevance to the candidate ad, without softmax normalization, so the sum of weights approximates the intensity of a user's activated interest (Section 3.5, Code Listing 2.2).
 
 4. **Hochreiter, S., & Schmidhuber, J. (1997).** "Long Short-Term Memory." *Neural Computation*.  
    DOI: [10.1162/neco.1997.9.8.1735](https://doi.org/10.1162/neco.1997.9.8.1735)  
-   LSTM architecture mentioned as alternative to Transformers for sequential encoding.
+   LSTM architecture mentioned as the pre-Transformer alternative for sequential encoding.
 
 5. **Mikolov, T., et al. (2013).** "Efficient Estimation of Word Representations in Vector Space." *ICLR 2013*.  
    arXiv: [1301.3781](https://arxiv.org/abs/1301.3781)  
-   Word2Vec embedding approach foundational to Section 1 concepts.
+   Word2Vec embedding approach foundational to Section 1's pre-training strategies.
+
+6. **Su, J., et al. (2021).** "RoFormer: Enhanced Transformer with Rotary Position Embedding." *arXiv preprint*.  
+   arXiv: [2104.09864](https://arxiv.org/abs/2104.09864)  
+   Introduces RoPE, the rotation-based relative positional encoding scheme described in Section 2.3.4.
