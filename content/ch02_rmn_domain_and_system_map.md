@@ -309,11 +309,15 @@ The distinction is easier to see on real placements:
 
 **Figure 2.4: Walmart search results show both a top sponsored brand unit and in-grid sponsored product cards for `coffee maker` (October 2026)**
 
-<img src="pics/ch02_walmart_search_composite.png" alt="Walmart search results for coffee maker showing a top sponsored brand unit and lower in-grid product cards labeled Sponsored." width="720">
+<img src="resources/ch02/ch02_walmart_search_composite.png" alt="Two Walmart search-result screenshots for coffee maker side by side: on the left, a sponsored Keurig brand unit at the top of the results; on the right, in-grid product cards labeled Sponsored." width="100%">
+
+<br><br>
 
 **Figure 2.5: Walmart item pages can pair the full product-detail context with lower sponsored recommendation and offer modules (October 2026)**
 
-<img src="pics/ch02_walmart_item_composite.png" alt="Composite Walmart product detail example showing the full Mr. Coffee product page hero above and a lower product-detail section with sponsored recommendation and offer modules." width="720">
+<img src="resources/ch02/ch02_walmart_item_composite.png" alt="Two Walmart product-page screenshots side by side: on the left, the Mr. Coffee 5-Cup product page hero; on the right, a lower section of the same page with a sponsored recommendation carousel and a sponsored offer module." width="100%">
+
+<br><br>
 
 **Table 2.5** compares the two primary families.
 
