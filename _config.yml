@@ -1,9 +1,0 @@
-theme: jekyll-theme-slate
-title: Building Retail Media Networks
-description: Architecture, Algorithms, and Machine Learning for Ad Systems
-defaults:
-  - scope:
-      path: ""
-    values:
-      layout: "default"
-
