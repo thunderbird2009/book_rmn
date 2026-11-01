@@ -1,6 +1,6 @@
 # Glossary
 
-This glossary provides concise definitions of the key technical terms, acronyms, and concepts used throughout the book. Each entry includes cross-references to the chapters where the term is discussed in detail. For introductory definitions of core RMN domain terms, see also **Chapter 2, Section 2.2**.
+This glossary provides concise definitions of the key technical terms, acronyms, and concepts used throughout the book. Each entry includes cross-references to the chapters where the term is discussed in detail. For introductory definitions of core RMN domain terms, see also **Chapter 2, Section 1.3**.
 
 ---
 <details>
@@ -47,7 +47,7 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Ad Exchange** — A marketplace where publishers' impressions, usually represented by SSPs, are auctioned in real time to bidders, usually DSPs acting for advertisers. (Ch 1)
 
-**Ad Format** — The kind of ad unit a shopper sees: sponsored product, display ad, brand unit or video. Independent of the **Pricing Model** and the **Buying Model**. (Ch 2)
+**Ad Format** — The kind of ad unit a shopper sees: sponsored product, sponsored brand, display ad or video. Independent of the **Pricing Model** and the **Media Buying Model**. (Ch 2)
 
 **Ad Group** — The middle level of the Campaign → Ad Group → Ad hierarchy: a set of ads that share targeting and bid settings. In display, the ad group is called an **Ads Line Item** and also carries delivery terms. For sponsored products, each (SKU, ad group) pair is an **Advertised Product**. (Ch 2, Ch 4)
 
@@ -61,13 +61,15 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Ad Server** — The central service that orchestrates the real-time ad request pipeline: receiving a request, calling retrieval and scoring services, running the auction, selecting the winner, assembling the creative, and logging the event. (Ch 3)
 
+**Ad Type** — One of the book's four groupings of RMN advertising: sponsored products, sponsored brands, sponsored display and offsite media. Sponsored products are the main implementation, sponsored brands a variant of them, display is covered alongside them in Chapter 4 and later chapters, and offsite media in Chapter 17. (Ch 2)
+
 **Adjusted eCPM** — The final auction ranking metric combining bid, predicted click-through rate, and Quality Score: `Adjusted eCPM = Bid × pCTR × 1000 × Quality Score`. Extends the base eCPM formula with a quality multiplier. (Ch 3, Ch 4)
 
 **Ads Line Item** — The display form of the ad group. Besides targeting and creatives, it carries the delivery terms of a display buy: placements, flight dates, an impression goal or budget, a price, a priority tier (sponsorship, guaranteed, standard, remnant) and a frequency cap. (Ch 2)
 
 **Adstock** — A transformation applied to marketing spend in media mix models that captures the lagged, carry-over effect of advertising, so a dollar spent this period still contributes to the response in later periods. The geometric form, $\text{adstock}_t = x_t + \lambda \cdot \text{adstock}_{t-1}$, decays the carry-over by a channel-specific rate $\lambda \in [0, 1)$. (Ch 14)
 
-**Advertised Product** — The sponsored-products retrieval unit: an (SKU, ad group) pair. One SKU can be advertised in several ad groups with different targeting, bids and budgets, so each pair is a separate candidate until duplicates are removed from the page. (Ch 1, Ch 2)
+**Advertised Product** — The sponsored-products retrieval unit: an (SKU, ad group) pair, so despite its name it sits at SKU level, not **Product** level. One SKU can be advertised in several ad groups with different targeting, bids and budgets, so each pair is a separate candidate until duplicates are removed from the page. (Ch 1, Ch 2)
 
 **Advertising Token** — UID2/EUID terminology for the short-lived, Base64-encoded ephemeral token (AES-256-GCM encrypted raw UID2 plus metadata) that publishers attach to ad calls and bid requests; distinct from the longer-lived refresh token used only to obtain new advertising tokens. (Ap 3)
 
@@ -113,7 +115,7 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Boolean Targeting** — Targeting expressed as Boolean rules (AND, OR, NOT) over keywords, audience segments, categories and context, indexed in disjunctive normal form (see **DNF (Disjunctive Normal Form)**). It is the eligibility layer for sponsored products and the core of display retrieval. (Ch 2, Ch 4, Ap 1)
 
-**Brand Unit** — A hybrid ad unit on search results that combines a brand logo, a headline and several products: targeted like sponsored products (keywords, products) and built like display. (Ch 2)
+**Brand Unit** — See **Sponsored Brand**. (Ch 2)
 
 **Brier Score** — The mean squared error between predicted probabilities and observed binary outcomes, a proper scoring rule that jointly penalizes poor calibration and poor discrimination. Lower values indicate more trustworthy probability estimates. (Ch 10)
 
@@ -121,7 +123,7 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Budget Pacing** — The process of distributing an advertiser's budget over time (e.g., evenly across a day or flight) to avoid premature exhaustion. Techniques include PID controllers, throttling, and Lagrangian optimization. (Ch 2, Ch 7)
 
-**Buying Model** — How inventory is bought: in an auction, impression by impression, or through **Guaranteed Delivery** and **Sponsorship** deals. Independent of the **Ad Format** and the **Pricing Model**. (Ch 2)
+**Buying Model** — See **Media Buying Model**. (Ch 2)
 
 ---
 
@@ -136,6 +138,8 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 **Cascade Ranking** — A multi-stage retrieval and ranking pipeline in which progressively more expensive models score progressively smaller candidate sets, so a full model never evaluates the entire corpus. The reference RMN cascade is about 3,000 merged candidates, about 300 after the pre-ranker, about 200 after the relevance gate, and about 30 into the auction. (Ch 4)
 
 **Cannibalization** — Conversions that would have occurred without ad exposure but are attributed to ads. For an RMN the main form is organic cannibalization: a sponsored product capturing a sale the shopper would have made through the organic results, for example when the product would have ranked first organically anyway. Incrementality measurement corrects for it. (Ch 2, Ch 12)
+
+**Catalog-Bound Display** — **Sponsored Display** that promotes a required **Promoted Set** of SKUs and stops serving when none of them passes the **Offer Check**. Contrast a brand ad, which needs no SKU. (Ch 2, Ch 4, Ch 16)
 
 **Causal Forest** — A tree-based method purpose-built for estimating heterogeneous treatment effects, splitting on covariates that best separate units by uplift rather than by outcome, and providing valid confidence intervals on each estimate. (Ch 10)
 
@@ -269,6 +273,8 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Feature Store** — A centralized system for storing, managing, and serving pre-computed features for ML models. Provides both batch features (for training) and low-latency online features (for inference). (Ch 3, Ch 5)
 
+**Featured Offer** — The one **Offer** per SKU that is shown as the default way to buy it at a given time. (Ch 2)
+
 **Fill Rate** — The share of ad requests or ad slots that return a paid ad rather than a no-fill or house fallback, measured per placement type. A serving-health metric tracked alongside latency and effective CPM. (Ch 3)
 
 **First-Party Data** — Data collected directly by the retailer from its own customers: search queries, browsing behavior, purchase history, and loyalty information. The foundational data asset for RMNs. (Ch 1, Ch 2, Ch 10)
@@ -299,7 +305,7 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Graded Relevance (ESCI)** — A four-grade relevance scale: Exact, Substitute, Complement and Irrelevant, defined in Amazon's ESCI benchmark over about 130,000 queries and 2.6 million judged query-product pairs. (Ch 5)
 
-**Guaranteed Delivery** — A buying model in which the RMN commits to deliver an impression goal for an ads line item within its flight at an agreed price, ahead of auctioned demand; shortfalls are compensated with extra delivery or credit. (Ch 2)
+**Guaranteed Delivery** — A media buying model in which the RMN commits to deliver an impression goal for an ads line item within its flight at an agreed price, ahead of auctioned demand; shortfalls are compensated with extra delivery or credit. (Ch 2)
 
 ---
 
@@ -411,6 +417,8 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Match Type** — The flexibility of keyword matching: exact (the query equals the keyword, allowing close variants), phrase (the query contains the keyword's words in order) and broad (related queries, in any order, including synonyms). Broad match and close variants are implemented by query rewriting, not literal token matching. See also **Close Variant**. (Ch 2, Ch 5)
 
+**Media Buying Model** — How inventory is bought: in an auction, impression by impression, or through **Guaranteed Delivery** and **Sponsorship** deals. Independent of the **Ad Format** and the **Pricing Model**. (Ch 2)
+
 **Media Mix Modeling (MMM)** — A regression-based technique that decomposes total sales or conversions into contributions from each marketing channel using aggregate time-series data, typically combining an adstock transformation for carry-over effects with a saturation function for diminishing returns. Modern implementations (Google's Meridian, Meta's Robyn) use Bayesian inference and can be calibrated with incrementality-experiment results. (Ch 14)
 
 **Meta-Learner** — A family of uplift-modeling architectures (including the T-Learner, which differences separate treatment and control models, and the more sophisticated X-Learner and R-Learner) that estimate heterogeneous treatment effects, generally outperforming a simple two-model difference when treatment and control groups are imbalanced in size. (Ch 10)
@@ -438,6 +446,10 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 ---
 
 ## O
+
+**Offer** — One seller's price and stock for a SKU. A SKU has at most one **Featured Offer** at a time. (Ch 2)
+
+**Offer Check** — The serving rule for any ad that shows a SKU: a marketplace seller's ad can serve only while that seller's offer is featured, and a first-party supplier's ad only while the retailer's offer is featured. (Ch 2, Ch 3, Ch 4)
 
 **Onsite / Offsite** — Onsite media runs on the retailer's own properties (website, apps, in-store screens). Offsite media runs on third-party inventory (open web, social platforms, connected TV), using the retailer's shopper data for targeting and its sales data for measurement. (Ch 1)
 
@@ -471,17 +483,21 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Pre-Ranker** — A lightweight model or scoring function between retrieval and full ranking that cuts the merged candidate set (about 3,000) to a few hundred (about 300) using retrieval evidence, bid and lightweight engagement features, within the index's latency budget. (Ch 4)
 
-**Pricing Model** — How the advertiser is charged: per click (CPC), per thousand impressions (CPM) or per thousand viewable impressions (vCPM). Independent of the **Ad Format** and the **Buying Model**. (Ch 2)
+**Pricing Model** — How the advertiser is charged: per click (CPC), per thousand impressions (CPM) or per thousand viewable impressions (vCPM). Independent of the **Ad Format** and the **Media Buying Model**. (Ch 2)
 
 **Privacy Budget** — A per-party allotment of differential-privacy epsilon (ε) that bounds the cumulative privacy loss a clean room or reporting API may impose in a given period (typically per day). Each query consumes epsilon proportional to its sensitivity and noise calibration; once exhausted, further queries are blocked until the budget resets. (Ch 13)
 
 **Privacy by Design** — A systems-engineering framework (Cavoukian, 2009) built on seven principles (proactive not reactive, privacy as the default, privacy embedded in design, full functionality, end-to-end security, visibility and transparency, and user-centric control) for embedding privacy protection into a system's architecture rather than adding it after the fact. (Ch 13)
+
+**Product** — A family of **SKU** variants that share a title, brand and category. Advertisers bid on SKUs, not products; retrieval caps results per product, and search grids show one tile per product. (Ch 2, Ch 4, Ch 8)
 
 **Product Catalog Service (ProductSvc)** — The service that supplies product details (title, image, price, inventory) for rendering ad creatives and search results, shared across ad serving and organic search. (Ch 3)
 
 **Product Targeting** — Targeting specific products, categories, brands or product features, for example competitors' product pages (conquest) or complementary products. (Ch 2)
 
 **Product-to-Product Retrieval** — Retrieving ads related to the product a shopper is viewing, either substitutes or complements, from behavioral co-view/co-purchase relations, content-based relations, or advertiser product targets. It serves product-page placements and the substitute and complement groups of auto-targeting. (Ch 2, Ch 4)
+
+**Promoted Set** — The required set of SKUs on the ad group or ads line item of a sponsored brand or catalog-bound display ad, from which the ad shows SKUs. (Ch 2, Ch 10, Ch 13)
 
 **Propensity Model** — A model that predicts the probability a user will take a specific action (e.g., purchase in a product category within 7 days). Used for audience construction and targeting. (Ch 10)
 
@@ -577,11 +593,15 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **SIVT (Sophisticated Invalid Traffic)** — Non-human or fraudulent traffic that requires advanced detection methods (behavioral analysis, ML models, device fingerprinting) to identify. Includes bots mimicking human behavior, click farms, and ad stacking. Contrasted with GIVT. (Ch 11)
 
-**SKU (Stock-Keeping Unit)** — One distinct item in the retailer's catalog. (Ch 2)
+**SKU (Stock-Keeping Unit)** — One purchasable variant of a catalog **Product**, such as one size, color or pack. Every seller of that variant shares the same SKU; a seller's own inventory code is a separate identifier. (Ch 2)
 
 **SLA (Service Level Agreement)** — A formal commitment defining system performance requirements, typically including latency percentiles (e.g., p99 < 100ms) and availability targets (e.g., 99.9% uptime). (Ch 3)
 
 **SNIPS (Self-Normalized Inverse Propensity Scoring)** — A variant of inverse propensity scoring that normalizes the IPS weights to sum to one across the sample, trading a small amount of bias for a substantial reduction in variance relative to plain IPS, particularly when logged propensities are small. (Ch 9)
+
+**Sponsored Brand** — An ad that combines a brand logo, a headline and a **Promoted Set** of products, also called a brand unit. Targeted like sponsored products and built like display, and treated in this book as a variant of sponsored products. (Ch 2, Ch 6, Ch 10)
+
+**Sponsored Display** — A banner or video in a dedicated slot on the retailer's own pages, also called onsite display and, for short, display. It is either **Catalog-Bound Display** or a brand ad that needs no SKU, and is sold by auction or guaranteed deal. (Ch 2, Ch 4, Ch 16)
 
 **Sponsored Product** — An ad format that promotes a specific catalog SKU, rendered natively among organic search results and in product-page and cart carousels, with creative assembled from catalog data. Usually priced per click and sold by auction. Its retrieval unit is the **Advertised Product**. (Ch 2)
 
