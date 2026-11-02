@@ -41,7 +41,7 @@ Chapter 2 then supplies the domain model and the end-to-end system map, together
 
 ## 1. Traditional Ad Networks
 
-Traditional display and search networks differed in where demand came from (passive browsing versus a typed query), but they ran on one architecture. This section describes that architecture and then what was specific to each kind of network, because each is the historical anchor for one of the two ad formats an RMN sells: search ads for sponsored products, and display networks for onsite display.
+Traditional display and search networks differed in where demand came from (passive browsing versus a typed query), but they ran on one architecture. This section describes that architecture and then what was specific to each kind of network, because each is the historical anchor for one of the two main kinds of ad an RMN sells: search ads for sponsored products, and display networks for onsite display.
 
 ### 1.1. Shared Foundations
 
@@ -345,7 +345,7 @@ The book uses six named frameworks. Each is introduced here with the chapter tha
 The four stages of Section 5, from sponsored products alone to agent-ready commerce media. Every chapter's Design Decisions and Trade-offs section uses them to say what to build first.
 
 **Sponsored products vs. display**  
-The two ad formats share one serving stack but differ in what is retrieved (an advertised product versus an ads line item), how creative is produced, how they are priced and bought, and how they are measured. Part II uses sponsored products as the primary example and gives each of its chapters a "Display Placements: What Changes" subsection. Chapter 2 defines the formats; Chapter 16 covers what is unique to the display business.
+Sponsored products and display share one serving stack but differ in what is retrieved (an advertised product versus an ads line item), how creative is produced, how they are priced and bought, and how they are measured. Part II uses sponsored products as the primary example and gives each of its chapters a "Display Placements: What Changes" subsection. Chapter 2 defines the ad types; Chapter 16 covers what is unique to the display business.
 
 **The ranking cascade**  
 Every ad request passes through the same sequence of progressively more expensive stages, each working on fewer candidates (**Figure 1.4**). Retrieval paths produce candidates with their own scores; they are merged and filtered for eligibility; a pre-ranker trims them cheaply; a relevance gate removes off-topic ads regardless of bid; the CTR/CVR model scores the rest; the auction ranks and prices; and page arbitration places the winners among organic results. Chapter 3 sets the cascade's latency budget, Chapters 4 to 6 and 8 cover its stages, and all of them draw it the same way.
@@ -357,7 +357,7 @@ flowchart LR
   A["1. Retrieval: lexical, embedding, product-to-product (thousands)"] --> B["2. Merge and eligibility filter (~3,000)"]
   B --> C["3. Pre-ranker (~300)"]
   C --> D["4. Relevance gate (~200)"]
-  D --> E["5. CTR/CVR model (top ~30)"]
+  D --> E["5. CTR/CVR model (scores ~200)"]
   E --> F["6. Auction (slots)"]
   F --> G["7. Page arbitration with organic results (~6 sponsored slots on a search page)"]
 ```

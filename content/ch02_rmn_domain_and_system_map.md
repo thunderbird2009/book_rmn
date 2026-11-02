@@ -20,7 +20,7 @@ Section 1 defines the ontology, the objects the platform stores. Section 2 frame
 - [3. The Advertiser Lifecycle](#3-the-advertiser-lifecycle)
 - [4. Ads Planning: Campaign Setup](#4-ads-planning-campaign-setup)
   - [4.1. Campaign Management](#41-campaign-management)
-  - [4.2. Choosing Ad Formats and Placements](#42-choosing-ad-formats-and-placements)
+  - [4.2. The Dimensions of an Ad Buy](#42-the-dimensions-of-an-ad-buy)
   - [4.3. Targeting and Audience Strategy](#43-targeting-and-audience-strategy)
     - [4.3.1. Placement Types](#431-placement-types)
     - [4.3.2. Targeting Mechanisms](#432-targeting-mechanisms)
@@ -48,7 +48,7 @@ This section defines what an RMN sells and the objects behind it. Section 1.1 se
 
 ### 1.1. Ad Types
 
-The book groups RMN advertising into four ad types (**Table 2.1**). Sponsored products are its main implementation, and sponsored brands are a variant of them. Sponsored display has two variants: a catalog-bound ad promotes a required set of SKUs, and a brand ad needs no SKU. The book calls sponsored display simply display for short. Chapter 4 treats it in parallel with sponsored products, the other Part II chapters note what differs in a "Display Placements: What Changes" subsection, and Chapter 16 covers the display business. Offsite media runs on inventory the retailer does not own, and only Chapter 17 covers it. Section 1.2 defines SKUs, offers and the offer check, and Section 4.2 covers how advertisers choose among the ad types.
+The book groups RMN advertising into four ad types (**Table 2.1**). Sponsored products are its main implementation, and sponsored brands are a variant of them. Sponsored display has two variants: a catalog-bound ad promotes a required set of SKUs, and a brand ad needs no SKU. The book calls sponsored display simply display for short. Chapter 4 treats it in parallel with sponsored products, the other Part II chapters note what differs in a "Display Placements: What Changes" subsection, and Chapter 16 covers the display business. Offsite media runs on inventory the retailer does not own, and only Chapter 17 covers it. An ad type is the product an advertiser buys: it fixes the creative, the landing page, the relationship to the catalog and the inventory. Targeting, bid strategy and the other decisions of an ad buy are made within it (Section 4.2). Section 1.2 defines SKUs, offers and the offer check.
 
 **Table 2.1: The Four Ad Types**
 
@@ -79,9 +79,9 @@ The book groups RMN advertising into four ad types (**Table 2.1**). Sponsored pr
 
 ### 1.2. Entity Hierarchy
 
-The book uses one three-level hierarchy for both ad formats, **Campaign → Ad Group → Ad**, the same hierarchy search networks used (Chapter 1, Section 1.1). Each level has the same job in both formats, but what it contains differs (**Table 2.2**).
+The book uses one three-level hierarchy for sponsored products and display, **Campaign → Ad Group → Ad**, the same hierarchy search networks used (Chapter 1, Section 1.1). Each level has the same job in both, but what it contains differs (**Table 2.2**).
 
-**Table 2.2: The Entity Hierarchy by Format**
+**Table 2.2: The Entity Hierarchy for Sponsored Products and Display**
 
 | Level | Sponsored products | Display |
 |---|---|---|
@@ -119,7 +119,7 @@ flowchart TB
   CR1 -.->|"ads line item with its selected creative"| AU
 ```
 
-> **Design trade-off: One entity model for both formats vs. a separate display schema.** One model, with format-specific fields on the ad group, lets one control plane, index service, budget service and reporting pipeline serve both formats, at the cost of nullable fields and per-format validation. Separate schemas keep each model simple but duplicate infrastructure and make cross-format pacing and page arbitration harder. Choose one model when display is built on the sponsored-products stack in Stage 3; keep separate schemas only while display runs on a third-party ad server (Chapter 4 makes the matching serving decision).
+> **Design trade-off: One entity model for sponsored products and display vs. a separate display schema.** One model, with format-specific fields on the ad group, lets one control plane, index service, budget service and reporting pipeline serve both, at the cost of nullable fields and per-format validation. Separate schemas keep each model simple but duplicate infrastructure and make cross-format pacing and page arbitration harder. Choose one model when display is built on the sponsored-products stack in Stage 3; keep separate schemas only while display runs on a third-party ad server (Chapter 4 makes the matching serving decision).
 
 > **Design trade-off: Advertised products vs. SKUs as the retrieval unit.** Retrieving advertised products carries each ad group's targeting, bid and budget through ranking, so the auction prices the right bid and charges the right budget; it doubles the index in the reference RMN (10 million pairs for 5 million SKUs) and requires deduplication before the page. Retrieving SKUs keeps the index small and scores relevance once per item, but forces the platform to choose among a SKU's ad groups after retrieval. A middle path indexes shared content once per SKU and expands each retrieved SKU into its eligible advertised products before eligibility filtering and bidding; Chapter 4 and Appendix 1 develop the index layout.
 
@@ -301,7 +301,7 @@ Numbers in an architecture book only help when they agree: a retrieval budget mu
 | Post-click conversion rate; attributed order value | ~10%; ~\$35 | Assumption (Ch5) |
 | End-to-end ad latency (p99) | Search-integrated ≤ 60 ms; item and home placements ≤ 100 ms; asynchronous display ≤ 150 ms | Design budget (Ch3) |
 | Stage latency budgets (p99) | Retrieval, including throttling and budget eligibility, ≤ 15 ms; ranking stage (relevance gate and CTR/CVR model) ≤ 20 ms for ~300 candidates; auction, bid scaling and pricing ≤ 5 ms; page arbitration ≤ 5 ms | Design budget (Ch3) |
-| Ranking cascade | ~3,000 merged candidates → ~300 after the pre-ranker → ~200 after the relevance gate → top ~30 to the auction → ~6 sponsored slots on a search page, ~8 in an item-page carousel | Design budget (Ch1 **Figure 1.4**; Ch4, Ch5) |
+| Ranking cascade | ~3,000 merged candidates → ~300 after the pre-ranker → ~200 after the relevance gate, all scored by the CTR/CVR model and ranked by the auction → ~6 sponsored slots on a search page, ~8 in an item-page carousel | Design budget (Ch1 **Figure 1.4**; Ch4, Ch5) |
 
 The rows relate to each other in three ways, and later chapters rely on the same arithmetic.
 
@@ -370,36 +370,48 @@ The setup model must be simple enough for an advertiser to reason about and spec
 
 Forecasting sits between setup and launch. The advertiser needs a plausible estimate of reachable demand, bid levels and likely spend, and the platform builds it from historical demand, current competition, targeting reach and the bid response curves of Chapter 9. Once launched, the control plane validates the configuration and publishes it into serving state within the propagation targets of Chapter 3, Table 3.6. For self-serve sponsored products, that publication path has to reject broken configuration without feeling slow or batch-like.
 
-### 4.2. Choosing Ad Formats and Placements
+### 4.2. The Dimensions of an Ad Buy
 
-Section 1.1 defines the four ad types. An advertiser choosing among them decides along separate axes: format, placement, pricing model and media buying model. Sponsored products, for example, are usually priced per click and sold by auction [10].
+Section 1.1 defines the four ad types. The ad type is one of six dimensions of an ad buy (**Table 2.6**). The book keeps them separate because each answers a different question and drives different machinery. Sponsored products, for example, are usually priced per click and sold by auction [10].
 
-**Format, placement, pricing model and media buying model**  
-The book keeps these axes separate because they answer different design questions. **Format** says what kind of ad unit is rendered. **Placement** says where it appears; a product page can carry both a sponsored-products carousel and a display banner. The **pricing model** says what event creates the charge: a click (CPC), an impression (CPM), or a viewable impression (vCPM), where viewability follows Section 1.2. The **media buying model** says how the inventory is sold: in the auction, or through **guaranteed delivery**, where the RMN commits to an impression goal within a flight at an agreed price. A **sponsorship** is a guaranteed, often exclusive version of that buy. Each ad type in **Table 2.1** is a common pairing of these axes. The pairings are common, not mandatory: a sponsored brand can trade on clicks or viewable impressions, and display can be auctioned or reserved. Pricing changes what the auction must predict (Chapter 6); the media buying model determines whether there is an auction at all.
+**Table 2.6: The Dimensions of an Ad Buy**
+
+| Dimension | Question it answers | Values | What it drives | Defined in |
+|---|---|---|---|---|
+| **Ad type** | Which product is being bought? | Sponsored products, sponsored brands, sponsored display, offsite media | Entities, creative and catalog relationship (Ch4, Ch10) | §1.1 |
+| **Placement** | Where does the ad appear? | Search results, browse pages, product pages, homepage, cart and checkout, offsite | Shopper intent and latency budget (Ch3) | §4.3.1 |
+| **Targeting** | What makes a request qualify? | Manual keywords, auto-targeting, products and categories, audiences, context | Retrieval paths (Ch4) | §4.3.2 |
+| **Bid strategy** | Who sets the bid? | Manual, dynamic bidding, autobidding | How each bid is computed (Ch9) | §5.2 |
+| **Pricing model** | What event creates the charge? | CPC, CPM, vCPM | What the auction must predict (Ch6) | This section |
+| **Media buying model** | How is the inventory sold? | Auction, guaranteed delivery | Whether the auction or a delivery allocator decides (Ch16) | This section |
+
+The dimensions are not fully independent, because the ad type limits the others. Sponsored products are sold only by auction, and manual keywords serve sponsored products and sponsored brands but not display (**Table 2.8**). Within those limits, the pairings in **Table 2.1** are common, not mandatory: a sponsored brand can trade on clicks or viewable impressions, and display can be auctioned or reserved.
+
+**Format, pricing and media buying**
+An ad type also sets the range of its **format**, the kind of ad unit rendered: sponsored display can be a banner or a video. The **pricing model** says what event creates the charge: a click (CPC), an impression (CPM), or a viewable impression (vCPM), where viewability follows Section 1.2. The **media buying model** says how the inventory is sold: in the auction, or through **guaranteed delivery**, where the RMN commits to an impression goal within a flight at an agreed price. A **sponsorship** is a guaranteed, often exclusive version of that buy. Pricing changes what the auction must predict (Chapter 6); the media buying model determines whether there is an auction at all. The bid strategy and the pricing model are easy to confuse. One says who sets the bid and the other says what event is charged, so an autobid campaign can still pay per click. Labels such as "Manual CPC" in **Table 2.10** name both.
 
 > **Design trade-off: Auction vs. guaranteed buying for display.** Guaranteed deals give advertisers certainty about delivery, placement and price, and give the RMN predictable revenue; they require inventory forecasting, delivery-goal pacing, make-goods and reserving inventory the auction might have sold for more. The auction needs none of that machinery and prices each impression at its current value, but cannot promise delivery. Sell premium placements (homepage heroes, tentpole events) as guaranteed or sponsorship deals once forecasting exists, and run the remaining display inventory through the auction alongside sponsored products (Chapters 7 and 16).
 
-Four examples show how the axes combine:
+Four examples show how the dimensions combine:
 
 1. A sponsored product: a coffee maker listed in the results for "coffee maker", charged per click.
 2. Display, guaranteed: a homepage hero banner for a coffee brand's seasonal line, sold for one week at a fixed price per thousand impressions.
 3. Display, non-endemic: a credit-card offer on the checkout page, bought by a bank that does not sell through the retailer (Chapter 1, Section 4.1).
 4. A sponsored brand: the coffee brand's logo, headline and three of its products at the top of the results for "ground coffee".
 
-**Table 2.6** compares the two primary families.
+**Table 2.7** compares the two primary families.
 
-**Table 2.6: Sponsored Products vs. Display**
+**Table 2.7: Sponsored Products vs. Display**
 
 | | Sponsored products | Display |
 |---|---|---|
 | **Typical placement** | Inline in search results; product-page and cart carousels | Homepage hero, category and product-page banners, video |
-| **Targeting** | Manual keywords, auto-targeting, products and categories | Audiences, context, categories, retargeting |
 | **Measurement** | Click-based attribution, ROAS | View-through attribution, reach and frequency, lift studies, media mix models |
 | **Typical buyer** | Endemic suppliers and marketplace sellers | Endemic brands (for awareness) and non-endemic advertisers |
 
 ### 4.3. Targeting and Audience Strategy
 
-Targeting decides whether an ad is *eligible* for a request. It has two separate dimensions: the placement where the ad may appear, and the rule by which the platform decides that the request qualifies. For sponsored products, each major targeting type maps to a retrieval path in Chapter 4.
+Targeting decides whether an ad is *eligible* for a request. Eligibility rests on two dimensions of **Table 2.6**: the placement where the ad may appear, and the targeting rule by which the platform decides that the request qualifies. For sponsored products, each major targeting type maps to a retrieval path in Chapter 4.
 
 #### 4.3.1. Placement Types
 
@@ -428,9 +440,9 @@ With **auto-targeting**, the advertiser supplies no keyword list. The platform i
 These mechanisms are native to display and also serve as overlays on sponsored products. **Audience targeting** makes an ad eligible for shoppers in a segment defined over first-party data: behavioral ("searched running shoes in the past 7 days and did not buy"), transactional ("bought a competing brand three times in 90 days") or predictive ("likely to buy in this category this week", Chapter 11). In the reference RMN, advertisers see segment sizes and results, never shopper-level data. **Contextual targeting** matches the page rather than the shopper, so it needs no identity, and it can be extended with embedding similarity (Chapter 4). **Retargeting** brings back shoppers who recently viewed or carted a product without buying.
 
 **Boolean targeting**  
-An ad group's targeting is a **Boolean** expression over these mechanisms, for example keyword AND audience AND NOT category. The platform indexes those expressions in disjunctive normal form so one request can be matched against millions of eligibility rules at once. That index is the eligibility layer for sponsored products and the core of display retrieval (Chapter 4). **Table 2.7** summarizes the mechanisms.
+An ad group's targeting is a **Boolean** expression over these mechanisms, for example keyword AND audience AND NOT category. The platform indexes those expressions in disjunctive normal form so one request can be matched against millions of eligibility rules at once. That index is the eligibility layer for sponsored products and the core of display retrieval (Chapter 4). **Table 2.8** summarizes the mechanisms.
 
-**Table 2.7: Targeting Mechanisms and Where They Are Served**
+**Table 2.8: Targeting Mechanisms and Where They Are Served**
 
 | Mechanism | Formats | Who chooses the matches | Served by (Ch4) |
 |---|---|---|---|
@@ -444,9 +456,9 @@ An ad group's targeting is a **Boolean** expression over these mechanisms, for e
 
 #### 4.3.3. Common Combinations
 
-Real campaigns usually layer mechanisms, pairing a placement with several signals at once (**Table 2.8**).
+Real campaigns usually layer mechanisms, pairing a placement with several signals at once (**Table 2.9**).
 
-**Table 2.8: Common Placement and Targeting Combinations**
+**Table 2.9: Common Placement and Targeting Combinations**
 
 | Placement | Typical targeting | Example |
 | --- | --- | --- |
@@ -489,9 +501,9 @@ The auction also sits downstream of retrieval and upstream of pacing and billing
 Guaranteed ads line items do not bid. Their impressions are allocated before the auction to meet the contracted goals (Chapter 16), and the remaining inventory is auctioned. Sponsored products, display and organic results then compete for the same page. How many ad slots a page carries, and where, is its **ad load**, which Chapter 8 owns along with page arbitration.
 
 **Bid strategies**  
-A **bid strategy** determines who sets the bid for each auction and what the platform pursues on the advertiser's behalf (**Table 2.9**).
+A **bid strategy** determines who sets the bid for each auction and what the platform pursues on the advertiser's behalf (**Table 2.10**).
 
-**Table 2.9: Campaign Goals and Bid Strategies**
+**Table 2.10: Campaign Goals and Bid Strategies**
 
 | Campaign goal | Typical bid strategy | Who sets the bid | Platform's role |
 | --- | --- | --- | --- |
@@ -502,15 +514,15 @@ A **bid strategy** determines who sets the bid for each auction and what the pla
 | Revenue at a return target | Autobidding: target ROAS | Platform | Sets each bid to reach the average return on ad spend |
 | Volume within budget | Autobidding: maximize conversions | Platform | Spends the budget for the most conversions |
 
-**Dynamic bidding** modifies a manual bid: the advertiser sets a base CPC, and the platform raises or lowers it per auction within a bounded range using the predicted likelihood of a sale. **Autobidding** removes the per-auction bid entirely: the advertiser states a goal and a constraint, and the platform computes a bid for every auction from predicted conversion probability and value. Autobidding depends on calibrated pCVR and value predictions (Chapter 5); Chapter 9 develops bid strategies for both formats.
+**Dynamic bidding** modifies a manual bid: the advertiser sets a base CPC, and the platform raises or lowers it per auction within a bounded range using the predicted likelihood of a sale. **Autobidding** removes the per-auction bid entirely: the advertiser states a goal and a constraint, and the platform computes a bid for every auction from predicted conversion probability and value. Autobidding depends on calibrated pCVR and value predictions (Chapter 5); Chapter 9 develops bid strategies for sponsored products and display.
 
 > **Sidebar (as of October 2026): Dynamic bidding and autobidding on two large platforms.** Amazon's "dynamic bids, up and down" strategy for sponsored products raises or lowers bids by up to 100%, so a \$1.00 bid can become at most \$2.00 [14]. Google's target CPA strategy sets a bid each time an ad is eligible, from historical campaign data and auction-time signals [15], and its target ROAS strategy predicts the conversion value of each search and bids to reach the advertiser's average return target [16].
 
 ### 5.3. Advertiser Controls and In-Flight Changes
 
-**Table 2.10** lists the controls an advertiser holds and the chapter that owns the system behind each. Later chapters point here rather than list them again.
+**Table 2.11** lists the controls an advertiser holds and the chapter that owns the system behind each. Later chapters point here rather than list them again.
 
-**Table 2.10: Advertiser Controls and Their Owning Chapters**
+**Table 2.11: Advertiser Controls and Their Owning Chapters**
 
 | Control | Examples | Set on | Owning chapter |
 |---|---|---|---|
@@ -532,13 +544,13 @@ Advertisers steer the campaign while it is live: raising bids where demand is pr
 
 Measurement closes the loop of Section 3 by answering three different questions. First, what happened operationally: impressions, clicks, spend, attributed orders and pacing status. Second, what happened commercially: reach, frequency, ROAS, CPA and new-to-brand acquisition. Third, what happened causally: which outcomes the ads actually changed.
 
-The measurement surface depends on the format. Sponsored products are usually judged on click-based outcomes because the ad unit sits close to purchase intent. Display, especially for non-endemic advertisers, puts more weight on views, reach, frequency and lift because the ad often serves earlier in the funnel or for a business whose sale happens elsewhere. Both cases depend on **closed-loop measurement**, which links exposures to real purchases, online and in store, through the retailer's known customer base. That link joins impression and click logs to order events, loyalty identities and cost records. Chapter 13 builds that system inside the retailer, Chapter 14 adds the causal methods, and Chapter 15 handles cases where the relevant exposure or conversion crosses the retailer boundary.
+The measurement surface depends on the ad type. Sponsored products are usually judged on click-based outcomes because the ad unit sits close to purchase intent. Display, especially for non-endemic advertisers, puts more weight on views, reach, frequency and lift because the ad often serves earlier in the funnel or for a business whose sale happens elsewhere. Both cases depend on **closed-loop measurement**, which links exposures to real purchases, online and in store, through the retailer's known customer base. That link joins impression and click logs to order events, loyalty identities and cost records. Chapter 13 builds that system inside the retailer, Chapter 14 adds the causal methods, and Chapter 15 handles cases where the relevant exposure or conversion crosses the retailer boundary.
 
 ### 6.1. Core Metrics
 
-**Table 2.11** defines the metrics later chapters use, with the format each mainly serves.
+**Table 2.12** defines the metrics later chapters use, with the format each mainly serves.
 
-**Table 2.11: Core RMN Performance Metrics**
+**Table 2.12: Core RMN Performance Metrics**
 
 | Metric | Formula | What it measures | Mainly for |
 | --- | --- | --- | --- |
@@ -582,13 +594,13 @@ Measurement is useful only if it changes the next decision. The platform needs i
 
 ## 7. Design Decisions and Trade-offs
 
-This chapter's decisions concern the domain model and what the RMN offers advertisers. **Table 2.12** collects the trade-off callouts above.
+This chapter's decisions concern the domain model and what the RMN offers advertisers. **Table 2.13** collects the trade-off callouts above.
 
-**Table 2.12: Domain-Level Design Decisions for an RMN**
+**Table 2.13: Domain-Level Design Decisions for an RMN**
 
 | Decision | Options | What each buys | When to choose |
 |---|---|---|---|
-| Entity model (§1.2) | One model for both formats vs. a separate display schema | One model: shared control plane, indexes, budgets and reporting; cross-format campaigns. Separate: simpler schemas | One model when display is built on the sponsored-products stack (Stage 3); separate only while display runs on a third-party ad server |
+| Entity model (§1.2) | One model for sponsored products and display vs. a separate display schema | One model: shared control plane, indexes, budgets and reporting; cross-format campaigns. Separate: simpler schemas | One model when display is built on the sponsored-products stack (Stage 3); separate only while display runs on a third-party ad server |
 | Retrieval unit (§1.2) | Advertised products vs. SKUs | Advertised products: the right bid and budget reach the auction. SKUs: a smaller index | Index shared content per SKU and expand to advertised products before eligibility and bidding (Ch4) |
 | Display media buying model (§4.2) | Auction vs. guaranteed | Auction: per-impression pricing, no forecasting. Guaranteed: certainty for advertisers, predictable revenue | Guaranteed or sponsorship for premium placements once forecasting exists; auction for the rest |
 | SP targeting (§4.3) | Manual keywords vs. auto-targeting | Manual: control and predictability. Auto: long-tail coverage with no setup | Both from Stage 1; auto-targeting as the default, manual keywords to refine |
@@ -598,7 +610,7 @@ This chapter's decisions concern the domain model and what the RMN offers advert
 
 ## Summary and Next Steps
 
-The domain model is the chapter's foundation. The book recognizes four ad types: sponsored products as its main implementation, sponsored brands as their variant, sponsored display alongside them in Chapter 4 and in later chapters, and offsite media in Chapter 17. The shared hierarchy is Campaign → Ad Group → Ad. The sponsored-products retrieval unit is the advertised product, an (SKU, ad group) pair. The display delivery unit is the ads line item. Format, pricing model and media buying model are separate axes, and targeting choices map those commercial decisions into the retrieval and eligibility machinery of Chapter 4.
+The domain model is the chapter's foundation. The book recognizes four ad types: sponsored products as its main implementation, sponsored brands as their variant, sponsored display alongside them in Chapter 4 and in later chapters, and offsite media in Chapter 17. The shared hierarchy is Campaign → Ad Group → Ad. The sponsored-products retrieval unit is the advertised product, an (SKU, ad group) pair. The display delivery unit is the ads line item. An ad buy has six separate dimensions, and its targeting choices map those commercial decisions into the retrieval and eligibility machinery of Chapter 4.
 
 The RMN in this book is one connected system: a control plane that turns campaign intent into serving state, a serving path that turns one request into a ranked, priced and placed ad, and a measurement loop that turns exposures and purchases back into budgets and reports. The **reference RMN** keeps those pieces numerically consistent: roughly 120 million monthly shoppers, 10 million advertised products, 15,000 average ad requests per second with headroom to 50,000 at peak, and a 60 ms search-integrated latency budget.
 

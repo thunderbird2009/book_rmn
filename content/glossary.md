@@ -51,7 +51,7 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Ad Group** — The middle level of the Campaign → Ad Group → Ad hierarchy: a set of ads that share targeting and bid settings. In display, the ad group is called an **Ads Line Item** and also carries delivery terms. For sponsored products, each (SKU, ad group) pair is an **Advertised Product**. (Ch 2, Ch 4)
 
-**Ad Index (AdIndex)** — The service and in-memory data structure that stores and indexes all active ad candidates and runs the retrieval stage of the serving pipeline. It holds multiple index structures (keyword, product text, product ANN, product-to-product, and the ads line item DNF index) behind one request path, returns format-tagged candidates, and completes its work within the 15 ms p99 retrieval budget. (Ch 3, Ch 4, Ap 1)
+**Ad Index (AdIndex)** — The service and in-memory data structure that stores and indexes all active ad candidates and runs the retrieval stage of the serving pipeline. It holds multiple index structures (keyword, product text, product ANN, product-to-product, and the ads line item DNF index) behind one request path, returns candidates tagged by ad type, and completes its work within the 15 ms p99 retrieval budget. (Ch 3, Ch 4, Ap 1)
 
 **Ad Load** — How many ad slots a page carries, and where. Set by the page-arbitration policy that balances ad revenue against organic results and shopper trust. (Ch 2)
 
@@ -135,7 +135,7 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Campaign** — The top-level advertising entity containing one or more ad groups. Defines overall budget, flight dates, and optimization objectives. (Ch 2)
 
-**Cascade Ranking** — A multi-stage retrieval and ranking pipeline in which progressively more expensive models score progressively smaller candidate sets, so a full model never evaluates the entire corpus. The reference RMN cascade is about 3,000 merged candidates, about 300 after the pre-ranker, about 200 after the relevance gate, and about 30 into the auction. (Ch 4)
+**Cascade Ranking** — A multi-stage retrieval and ranking pipeline in which progressively more expensive models score progressively smaller candidate sets, so a full model never evaluates the entire corpus. The reference RMN cascade is about 3,000 merged candidates, about 300 after the pre-ranker, and about 200 after the relevance gate, all scored by the CTR/CVR model for the auction. (Ch 4)
 
 **Cannibalization** — Conversions that would have occurred without ad exposure but are attributed to ads. For an RMN the main form is organic cannibalization: a sponsored product capturing a sale the shopper would have made through the organic results, for example when the product would have ranked first organically anyway. Incrementality measurement corrects for it. (Ch 2, Ch 12)
 
