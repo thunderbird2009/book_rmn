@@ -41,9 +41,11 @@ This glossary provides concise definitions of the key technical terms, acronyms,
 
 **Ad** — The atomic auction candidate and the lowest level of the Campaign → Ad Group → Ad hierarchy: a reference to one SKU for sponsored products, or a creative for display. (Ch 2)
 
-**Ad Campaign Service (AdSvc)** — The service that supplies authoritative bid properties (max bid, bid strategy) and campaign metadata (advertiser ID, budget status, policy flags) for the reduced candidate set entering the auction. (Ch 3)
+**Ad Campaign Service (AdSvc)** — The control-plane campaign store and source of truth for bids, bid strategies, policy flags and display delivery terms. The serving path never calls it; it reads the AdSvc snapshot cache instead. (Ch 3)
 
-**Ad Event Service (AdEventSvc)** — The service that receives click and viewability events from the frontend, validates them for fraud and duplication, and forwards pre-calculated auction costs to BudgetSvc for budget deduction. (Ch 4)
+**AdSvc Snapshot Cache** — An out-of-process, replicated in-memory cache in each region that holds the campaign fields serving needs (bids, bid strategies, policy flags, delivery terms). Change data capture from the campaign store keeps it current, and the AdServer reads it once per request in parallel with scoring. (Ch 3, Ch 6)
+
+**Ad Event Service (AdEventSvc)** — The event-intake service that receives impression, viewability and click beacons from the page, checks each beacon's signed tracking token, expiry and duplicates, appends valid events to the event log and feeds the cost events that update budget state. (Ch 3, Ch 6, Ch 12)
 
 **Ad Exchange** — A marketplace where publishers' impressions, usually represented by SSPs, are auctioned in real time to bidders, usually DSPs acting for advertisers. (Ch 1)
 
